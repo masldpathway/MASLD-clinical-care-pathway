@@ -44,15 +44,18 @@ export function Select({ id, label, options, ...props }: SelectProps) {
   );
 }
 
-type CheckProps = CheckboxProps & { label: string };
+type CheckProps = CheckboxProps & {
+  label: string;
+  centerLabel?: boolean;
+};
 
-export function Check({ label, ...props }: CheckProps) {
+export function Check({ label, centerLabel = false, ...props }: CheckProps) {
   return (
     <FormControlLabel
       control={<Checkbox {...props} />}
       label={label}
       sx={{
-        alignItems: "flex-start",
+        alignItems: centerLabel ? "center" : "flex-start",
         border: 1,
         borderColor: "divider",
         borderRadius: 2,
@@ -60,7 +63,7 @@ export function Check({ label, ...props }: CheckProps) {
         m: 0,
         px: 1,
         py: 0.25,
-        "& .MuiCheckbox-root": { pt: 0.75 },
+        "& .MuiCheckbox-root": { pt: centerLabel ? 1 : 0.75 },
       }}
     />
   );

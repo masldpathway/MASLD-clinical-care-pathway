@@ -62,7 +62,7 @@ function CheckSection({ title, children }: { title: string; children: ReactNode 
 function Metabolic({ state }: Props) {
   const answers = saved(state, "metabolic");
   return <Layout
-    description={<>MASLD screening continues when at least {config.metabolicSyndrome.requiredCriteria} of 5 criteria are met. Medication treatment counts for the associated criterion.</>}
+    description={<>MASLD screening continues when at least {config.metabolicSyndrome.requiredCriteria} of 5 criteria are met. Specific treatment or pre-existing qualifying conditions count for the associated criterion.</>}
     actions={<Actions back={false} />}
   >
     <Select id="sex" name="sex" label="Sex used for pathway thresholds" required defaultValue={text(answers.sex)}
@@ -77,9 +77,11 @@ function Metabolic({ state }: Props) {
     <Input id="diastolic" name="diastolic" label="Diastolic blood pressure (mmHg)" type="number" min="0" step="any" required defaultValue={text(answers.diastolic)} />
     <UnitInput id="glucose" label="Fasting blood glucose" value={answers.glucose} unit={answers.glucoseUnit}
       options={[["mmol", "mmol/L"], ["mgdl", "mg/dL"]]} />
-    <CheckSection title="Current treatment">
-      <Check id="bloodPressureTreatment" name="bloodPressureTreatment" label="Treatment for elevated blood pressure" defaultChecked={Boolean(answers.bloodPressureTreatment)} />
-      <Check id="glucoseTreatment" name="glucoseTreatment" label="Treatment for elevated blood glucose" defaultChecked={Boolean(answers.glucoseTreatment)} />
+    <CheckSection title="Treatment or pre-existing qualifying conditions">
+      <Check id="triglyceridesTreatment" name="triglyceridesTreatment" centerLabel label="Specific treatment for elevated triglycerides" defaultChecked={Boolean(answers.triglyceridesTreatment)} />
+      <Check id="hdlTreatment" name="hdlTreatment" centerLabel label="Specific treatment for low HDL cholesterol" defaultChecked={Boolean(answers.hdlTreatment)} />
+      <Check id="bloodPressureTreatment" name="bloodPressureTreatment" centerLabel label="Treatment for elevated blood pressure" defaultChecked={Boolean(answers.bloodPressureTreatment)} />
+      <Check id="type2DiabetesDiagnosis" name="type2DiabetesDiagnosis" centerLabel label="Previously diagnosed type 2 diabetes" defaultChecked={Boolean(answers.type2DiabetesDiagnosis)} />
     </CheckSection>
   </Layout>;
 }
@@ -98,16 +100,16 @@ function Alternate({ state }: Props) {
   return <Layout description="Select known alternate diagnoses or possible causes. Any positive result exits this MASLD pathway.">
     <CheckSection title="Potential drug-induced liver injury medications">
       {config.alternateDiagnoses.diliMedications.map((medication, index) =>
-        <Check key={medication} id={`dili-${index}`} name={`dili-${index}`} label={medication} defaultChecked={medications.includes(medication)} />)}
+        <Check key={medication} id={`dili-${index}`} name={`dili-${index}`} centerLabel label={medication} defaultChecked={medications.includes(medication)} />)}
     </CheckSection>
     <CheckSection title="Viral hepatitis">
-      <Check id="hbsagPositive" name="hbsagPositive" label="HBsAg positive" defaultChecked={Boolean(answers.hbsagPositive)} />
-      <Check id="hcvPositive" name="hcvPositive" label="HCV antibody positive and HCV RNA positive" defaultChecked={Boolean(answers.hcvPositive)} />
+      <Check id="hbsagPositive" name="hbsagPositive" centerLabel label="HBsAg+" defaultChecked={Boolean(answers.hbsagPositive)} />
+      <Check id="hcvPositive" name="hcvPositive" centerLabel label="HCV Ab+ and HCV RNA+" defaultChecked={Boolean(answers.hcvPositive)} />
     </CheckSection>
     <CheckSection title="Genetic conditions">
       {config.alternateDiagnoses.geneticConditions.length
         ? config.alternateDiagnoses.geneticConditions.map((condition, index) =>
-          <Check key={condition} id={`genetic-${index}`} name={`genetic-${index}`} label={condition} defaultChecked={conditions.includes(condition)} />)
+          <Check key={condition} id={`genetic-${index}`} name={`genetic-${index}`} centerLabel label={condition} defaultChecked={conditions.includes(condition)} />)
         : <Typography variant="caption" color="text.secondary">No genetic conditions are configured in this prototype.</Typography>}
     </CheckSection>
   </Layout>;
@@ -115,7 +117,7 @@ function Alternate({ state }: Props) {
 
 function Enzymes({ state }: Props) {
   const answers = saved(state, "enzymes");
-  return <Layout description={<>The current development assumption continues this pathway when at least one value is below {config.aminotransferases.thresholdUL} U/L.</>}>
+  return <Layout description={<>ALT or AST at or above {config.aminotransferases.thresholdUL} U/L is a soft cutoff to consider an alternate cause, but it does not exclude the patient from this pathway.</>}>
     <Input id="alt" name="alt" label="ALT (U/L)" type="number" min="0" step="any" required defaultValue={text(answers.alt)} />
     <Input id="ast" name="ast" label="AST (U/L)" type="number" min="0" step="any" required defaultValue={text(answers.ast)} />
   </Layout>;

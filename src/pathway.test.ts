@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { config } from "./config";
 import { submitStep } from "./pathway";
 import type { FormValues, PathwayState, Step } from "./types";
 
@@ -19,11 +20,11 @@ describe("MASLD pathway engine", () => {
     expect(state.result?.title).toBe("MASLD pathway not indicated");
   });
 
-  it("counts treatment and converts US customary units", () => {
+  it("counts pre-existing qualifying conditions and converts US customary units", () => {
     const state = submit(start(), qualifyingMetabolic({
       sex: "female", waist: String(88 / 2.54), waistUnit: "in",
       triglycerides: String(1.7 * 88.57), triglyceridesUnit: "mgdl",
-      hdl: String(1.29 * 38.67), hdlUnit: "mgdl",
+      hdl: String(1.3 * 38.67), hdlUnit: "mgdl",
       systolic: "100", diastolic: "60", glucose: String(5.6 * 18),
       glucoseUnit: "mgdl", bloodPressureTreatment: "on",
     }));
@@ -31,15 +32,46 @@ describe("MASLD pathway engine", () => {
     expect(state.currentStep).toBe("alcohol");
   });
 
+  it("uses exact local SI metabolic threshold boundaries", () => {
+    expect(submit(start(), qualifyingMetabolic({
+      waist: "101.99", triglycerides: "1.69", hdl: "1.0", systolic: "129.99",
+      diastolic: "84.99", glucose: "5.59",
+    })).result?.title).toBe("MASLD pathway not indicated");
+
+    expect(submit(start(), qualifyingMetabolic({
+      hdl: "0.99", systolic: "129.99", glucose: "5.59",
+    })).currentStep).toBe("alcohol");
+
+    expect(submit(start(), qualifyingMetabolic({
+      sex: "female", hdl: "1.3", systolic: "129.99", glucose: "5.59",
+    })).result?.title).toBe("MASLD pathway not indicated");
+
+    expect(submit(start(), qualifyingMetabolic({
+      sex: "female", hdl: "1.29", systolic: "129.99", glucose: "5.59",
+    })).currentStep).toBe("alcohol");
+  });
+
+  it("counts treatment for triglycerides and HDL plus prior type 2 diabetes diagnosis", () => {
+    const state = submit(start(), qualifyingMetabolic({
+      waist: "101", triglycerides: "1.69", hdl: "1.5", systolic: "120",
+      diastolic: "70", glucose: "5.59", triglyceridesTreatment: "on",
+      hdlTreatment: "on", type2DiabetesDiagnosis: "on",
+    }));
+    expect((state.answers.metabolic as { criteriaCount: number }).criteriaCount).toBe(3);
+    expect(state.currentStep).toBe("alcohol");
+  });
+
   it("exits at configured MetALD and ALD thresholds", () => {
     const metabolic = submit(start(), qualifyingMetabolic());
-    expect(submit(metabolic, { drinksPerWeek: "15" }).result?.message).toMatch(/MetALD range/);
+    expect(submit(metabolic, { drinksPerWeek: "15.01" }).result?.message).toMatch(/MetALD range/);
+    expect(submit(metabolic, { drinksPerWeek: "15.01" }).result?.message).toMatch(/Verify the diagnosis case by case/);
     expect(submit(metabolic, { drinksPerWeek: "30" }).result?.message).toMatch(/ALD range/);
   });
 
   it("continues below the sex-specific alcohol threshold", () => {
     const metabolic = submit(start(), qualifyingMetabolic({ sex: "female" }));
-    expect(submit(metabolic, { drinksPerWeek: "9.99" }).currentStep).toBe("alternate");
+    expect(submit(metabolic, { drinksPerWeek: "10" }).currentStep).toBe("alternate");
+    expect(submit(start("alcohol", { metabolic: { sex: "male" } }), { drinksPerWeek: "15" }).currentStep).toBe("alternate");
   });
 
   it("exits for an alternate diagnosis and continues without one", () => {
@@ -49,12 +81,43 @@ describe("MASLD pathway engine", () => {
       "Identified: possible drug-induced liver injury.",
       "Identified: positive HBsAg.",
     ]);
+    expect(exit.result?.message).toMatch(/Verify the diagnosis case by case/);
     expect(submit(state, {}).currentStep).toBe("enzymes");
   });
 
-  it("uses the configured either-below aminotransferase rule", () => {
-    expect(submit(start("enzymes"), { alt: "199.99", ast: "200" }).currentStep).toBe("diabetes");
-    expect(submit(start("enzymes"), { alt: "200", ast: "200" }).result?.title).toBe("Further assessment required");
+  it("lists the configured common DILI agents and classes", () => {
+    expect(config.alternateDiagnoses.diliMedications).toEqual([
+      "Amoxicillin-clavulanate (Augmentin)",
+      "Isoniazid",
+      "Methotrexate",
+      "Statins",
+      "Immune checkpoint inhibitors",
+      "Herbal and dietary supplements",
+    ]);
+  });
+
+  it("lists the configured genetic alternate causes", () => {
+    expect(config.alternateDiagnoses.geneticConditions).toEqual([
+      "Alpha-1 antitrypsin deficiency",
+      "Hereditary hemochromatosis",
+      "Wilson's disease",
+      "Glycogen storage disease",
+      "Cystic fibrosis",
+    ]);
+  });
+
+  it("continues through the aminotransferase soft cutoff and flags alternate-cause review", () => {
+    const below = submit(start("enzymes"), { alt: "199.99", ast: "199.99" });
+    expect(below.currentStep).toBe("diabetes");
+    expect((below.answers.enzymes as { considerAlternateCause: boolean }).considerAlternateCause).toBe(false);
+
+    const altAtCutoff = submit(start("enzymes"), { alt: "200", ast: "199.99" });
+    expect(altAtCutoff.currentStep).toBe("diabetes");
+    expect((altAtCutoff.answers.enzymes as { considerAlternateCause: boolean }).considerAlternateCause).toBe(true);
+
+    const astAtCutoff = submit(start("enzymes"), { alt: "199.99", ast: "200" });
+    expect(astAtCutoff.currentStep).toBe("diabetes");
+    expect((astAtCutoff.answers.enzymes as { considerAlternateCause: boolean }).considerAlternateCause).toBe(true);
   });
 
   it("routes diabetes to APP and absence of diabetes to FIB-4", () => {
@@ -72,14 +135,25 @@ describe("MASLD pathway engine", () => {
 
   it("calculates APP and routes exact boundaries", () => {
     expect(submit(start("app"), { albumin: "4", platelets: "1380" }).currentStep).toBe("elastography");
-    expect(submit(start("app"), { albumin: "4", platelets: "2000" }).result?.title).toBe("APP recommendation not implemented yet");
+    expect(submit(start("app"), { albumin: "4", platelets: "2000" }).currentStep).toBe("elastography");
     expect(submit(start("app"), { albumin: "3", platelets: "3090" }).result?.title).toBe("Repeat APP in 1 year");
   });
 
   it("refers at 8 kPa and repeats FIB-4 below 8 kPa", () => {
     const answers = { fib4: { score: 1.3 } };
-    expect(submit(start("elastography", answers), { kpa: "8" }).result?.title).toBe("Refer to hepatology");
-    expect(submit(start("elastography", answers), { kpa: "7.99" }).result?.title).toBe("Repeat FIB-4 in 1 year");
+    const referral = submit(start("elastography", answers), { kpa: "8" });
+    expect(referral.result?.title).toBe("Refer to hepatology");
+    expect(referral.result?.summary).toContain("Intensify cardiometabolic risk-factor modification.");
+    const repeat = submit(start("elastography", answers), { kpa: "7.99" });
+    expect(repeat.result?.title).toBe("Repeat FIB-4 in 1 year");
+    expect(repeat.result?.summary).toContain("Continue cardiometabolic risk-factor modification.");
+  });
+
+  it("adds repeat elastography consideration above 10 kPa", () => {
+    const answers = { fib4: { score: 1.3 } };
+    expect(submit(start("elastography", answers), { kpa: "10" }).result?.summary)
+      .not.toContain("Consider repeat elastography in 1-2 years.");
+    expect(submit(start("elastography", answers), { kpa: "10.01" }).result?.summary)
+      .toContain("Consider repeat elastography in 1-2 years.");
   });
 });
-

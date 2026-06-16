@@ -4,6 +4,8 @@ import type { FormValues, PathwayState, Result, Sex, Step } from "./types";
 const number = (value: FormDataEntryValue | undefined) =>
   Number.parseFloat(String(value));
 const checked = (value: FormDataEntryValue | undefined) => Boolean(value);
+const alternatePathwayMessage =
+  "The MASLD pathway no longer applies. Verify the diagnosis case by case and manage accordingly.";
 
 const transition = (
   state: PathwayState,
@@ -45,12 +47,14 @@ function submitMetabolic(state: PathwayState, values: FormValues): PathwayState 
   const glucose = values.glucoseUnit === "mgdl" ? number(values.glucose) / 18 : number(values.glucose);
   const criteria = [
     waistCm >= config.metabolicSyndrome.waistCm[sex],
-    triglycerides >= config.metabolicSyndrome.triglyceridesMmolL,
-    hdl < config.metabolicSyndrome.hdlMmolL[sex],
+    triglycerides >= config.metabolicSyndrome.triglyceridesMmolL ||
+      checked(values.triglyceridesTreatment),
+    hdl < config.metabolicSyndrome.hdlMmolL[sex] || checked(values.hdlTreatment),
     number(values.systolic) >= config.metabolicSyndrome.bloodPressureMmHg.systolic ||
       number(values.diastolic) >= config.metabolicSyndrome.bloodPressureMmHg.diastolic ||
       checked(values.bloodPressureTreatment),
-    glucose >= config.metabolicSyndrome.fastingGlucoseMmolL || checked(values.glucoseTreatment),
+    glucose >= config.metabolicSyndrome.fastingGlucoseMmolL ||
+      checked(values.type2DiabetesDiagnosis),
   ];
   const answers = { ...values, sex, criteriaCount: criteria.filter(Boolean).length };
   if (answers.criteriaCount < config.metabolicSyndrome.requiredCriteria) {
@@ -70,14 +74,14 @@ function submitAlcohol(state: PathwayState, values: FormValues): PathwayState {
   if (drinksPerWeek >= thresholds.aldMinimum) {
     return transition(state, "alcohol", { drinksPerWeek }, "result", {
       title: "MASLD pathway does not apply",
-      message: "Alcohol consumption meets the configured ALD range. Exit this MASLD pathway and assess for alcohol-associated liver disease.",
+      message: `${alternatePathwayMessage} Alcohol consumption meets the configured ALD range.`,
       summary: [`Reported alcohol consumption: ${drinksPerWeek} standard drinks/week.`],
     });
   }
-  if (drinksPerWeek >= thresholds.metaldMinimum) {
+  if (drinksPerWeek > thresholds.metaldMinimum) {
     return transition(state, "alcohol", { drinksPerWeek }, "result", {
       title: "MASLD pathway does not apply",
-      message: "Alcohol consumption meets the configured MetALD range. Exit this MASLD pathway and assess for metabolic dysfunction and alcohol-associated liver disease.",
+      message: `${alternatePathwayMessage} Alcohol consumption meets the configured MetALD range.`,
       summary: [`Reported alcohol consumption: ${drinksPerWeek} standard drinks/week.`],
     });
   }
@@ -102,7 +106,7 @@ function submitAlternate(state: PathwayState, values: FormValues): PathwayState 
   if (diagnoses.length) {
     return transition(state, "alternate", answers, "result", {
       title: "MASLD pathway does not apply",
-      message: "An alternate diagnosis or cause has been identified. Exit this MASLD pathway and assess accordingly.",
+      message: `${alternatePathwayMessage} An alternate diagnosis or cause has been identified.`,
       summary: diagnoses.map((diagnosis) => `Identified: ${diagnosis}.`),
     });
   }
@@ -110,18 +114,14 @@ function submitAlternate(state: PathwayState, values: FormValues): PathwayState 
 }
 
 function submitEnzymes(state: PathwayState, values: FormValues): PathwayState {
-  const answers = { alt: number(values.alt), ast: number(values.ast) };
-  const below = (value: number) => value < config.aminotransferases.thresholdUL;
-  const continues = config.aminotransferases.continueRule === "bothBelow"
-    ? below(answers.alt) && below(answers.ast)
-    : below(answers.alt) || below(answers.ast);
-  if (!continues) {
-    return transition(state, "enzymes", answers, "result", {
-      title: "Further assessment required",
-      message: "The pathway does not yet specify a recommendation when the configured aminotransferase threshold is not met.",
-      summary: [`ALT: ${answers.alt} U/L.`, `AST: ${answers.ast} U/L.`, "NOT IMPLEMENTED YET."],
-    });
-  }
+  const answers = {
+    alt: number(values.alt),
+    ast: number(values.ast),
+    considerAlternateCause: false,
+  };
+  answers.considerAlternateCause =
+    answers.alt >= config.aminotransferases.thresholdUL ||
+    answers.ast >= config.aminotransferases.thresholdUL;
   return transition(state, "enzymes", answers, "diabetes");
 }
 
@@ -153,7 +153,6 @@ function submitFib4(state: PathwayState, values: FormValues): PathwayState {
 function submitApp(state: PathwayState, values: FormValues): PathwayState {
   const answers = { albumin: number(values.albumin), platelets: number(values.platelets), score: 0 };
   answers.score = (answers.albumin * answers.platelets) / 1000;
-  if (answers.score <= config.app.fibroscanUpperInclusive) return transition(state, "app", answers, "elastography");
   if (answers.score >= config.app.repeatYearlyLowerInclusive) {
     return transition(state, "app", answers, "result", {
       score: `APP ${answers.score.toFixed(2)}`,
@@ -162,12 +161,7 @@ function submitApp(state: PathwayState, values: FormValues): PathwayState {
       summary: [`Calculated APP: ${answers.score.toFixed(2)}.`],
     });
   }
-  return transition(state, "app", answers, "result", {
-    score: `APP ${answers.score.toFixed(2)}`,
-    title: "APP recommendation not implemented yet",
-    message: "The calculated APP falls between the currently implemented thresholds. The pathway recommendation for this range still needs to be defined.",
-    summary: [`Calculated APP: ${answers.score.toFixed(2)}.`, "NOT IMPLEMENTED YET."],
-  });
+  return transition(state, "app", answers, "elastography");
 }
 
 function submitElastography(state: PathwayState, values: FormValues): PathwayState {
@@ -178,23 +172,31 @@ function submitElastography(state: PathwayState, values: FormValues): PathwaySta
     ? `Calculated FIB-4: ${fib4.score.toFixed(2)}.`
     : `Calculated APP: ${app!.score.toFixed(2)}.`;
   if (answers.kpa >= config.elastography.referralThresholdKpa) {
+    const summary = [
+      previousScore,
+      `Elastography: ${answers.kpa.toFixed(1)} kPa.`,
+      "Refer to hepatology.",
+      "Intensify cardiometabolic risk-factor modification.",
+    ];
+    if (answers.kpa > config.elastography.repeatConsiderationThresholdKpa) {
+      summary.push("Consider repeat elastography in 1-2 years.");
+    }
     return transition(state, "elastography", answers, "result", {
       score: `${answers.kpa.toFixed(1)} kPa`,
       title: "Refer to hepatology",
-      message: "Elastography meets the configured referral threshold. Refer the patient to hepatology.",
-      summary: [previousScore, `Elastography: ${answers.kpa.toFixed(1)} kPa.`],
+      message: "Elastography meets the configured referral threshold. Refer the patient to hepatology and intensify cardiometabolic risk-factor modification.",
+      summary,
     });
   }
   return transition(state, "elastography", answers, "result", {
     score: `${answers.kpa.toFixed(1)} kPa`,
     title: "Repeat FIB-4 in 1 year",
-    message: "Elastography is below the configured referral threshold. Repeat FIB-4 in 1 year and intensify cardiometabolic risk-factor modification.",
+    message: "Elastography is below the configured referral threshold. Repeat FIB-4 in 1 year and continue cardiometabolic risk-factor modification.",
     summary: [
       previousScore,
       `Elastography: ${answers.kpa.toFixed(1)} kPa.`,
       "Repeat FIB-4 in 1 year.",
-      "Intensify cardiometabolic risk-factor modification.",
+      "Continue cardiometabolic risk-factor modification.",
     ],
   });
 }
-
