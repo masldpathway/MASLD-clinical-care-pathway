@@ -126,7 +126,7 @@ export function buildResultSummaryText(state: PathwayState, result: Result) {
 }
 
 function Section({ title, items }: { title: string; items: SectionItem[] }) {
-  return <Box sx={{ mt: 2.25 }}>
+  return <Box component="section" aria-label={title.replace(":", "")} sx={{ mt: 2.25 }}>
     <Typography variant="h6" component="h3">{title}</Typography>
     <Stack component="dl" spacing={0.75} sx={{ m: 0, mt: 1 }}>
       {items.map((item) => <Box key={`${item.label}-${item.value}`} sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "minmax(180px, 0.42fr) 1fr" }, gap: { xs: 0.25, sm: 1.5 } }}>
@@ -137,6 +137,15 @@ function Section({ title, items }: { title: string; items: SectionItem[] }) {
   </Box>;
 }
 
+function BulletSection({ title, items }: { title: string; items: string[] }) {
+  return <Box component="section" aria-label={title.replace(":", "")} sx={{ mt: 2.25 }}>
+    <Typography variant="h6" component="h3">{title}</Typography>
+    {items.length > 0 && <Stack component="ul" spacing={0.75} sx={{ mb: 0, pl: 2.5, mt: 1.5 }}>
+      {items.map((item) => <Typography component="li" variant="body2" key={item}>{item}</Typography>)}
+    </Stack>}
+  </Box>;
+}
+
 export function ResultPanel({ result, state }: { result: Result; state: PathwayState }) {
   const displayedResultItems = resultItems(state, result);
   const displayedRecommendationItems = recommendationItems(result);
@@ -144,18 +153,8 @@ export function ResultPanel({ result, state }: { result: Result; state: PathwayS
   return <>
     <Paper variant="outlined" sx={{ bgcolor: "background.default", p: 2.25 }}>
       <Section title="Reported:" items={reportedItems(state)} />
-      <Box sx={{ mt: 2.25 }}>
-        <Typography variant="h6" component="h3">Result:</Typography>
-      </Box>
-      {displayedResultItems.length > 0 && <Stack component="ul" spacing={0.75} sx={{ mb: 0, pl: 2.5, mt: 1.5 }}>
-        {displayedResultItems.map((item) => <Typography component="li" variant="body2" key={item}>{item}</Typography>)}
-      </Stack>}
-      <Box sx={{ mt: 2.25 }}>
-        <Typography variant="h6" component="h3">Recommendation:</Typography>
-      </Box>
-      {displayedRecommendationItems.length > 0 && <Stack component="ul" spacing={0.75} sx={{ mb: 0, pl: 2.5, mt: 1.5 }}>
-        {displayedRecommendationItems.map((item) => <Typography component="li" variant="body2" key={item}>{item}</Typography>)}
-      </Stack>}
+      <BulletSection title="Result:" items={displayedResultItems} />
+      <BulletSection title="Recommendation:" items={displayedRecommendationItems} />
     </Paper>
     <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1.5, mt: 3.25 }}>
       <Button variant="outlined" type="button" data-action="back">Back</Button>
