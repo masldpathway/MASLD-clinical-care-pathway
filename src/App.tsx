@@ -13,7 +13,7 @@ import {
   Toolbar,
   Typography,
 } from "@mui/material";
-import { ResultPanel } from "./components/ResultPanel";
+import { buildResultSummaryText, ResultPanel } from "./components/ResultPanel";
 import { stepForms } from "./components/StepForm";
 import { submitStep } from "./pathway";
 import type { PathwayState, Step } from "./types";
@@ -35,6 +35,7 @@ const order: Step[] = ["metabolic", "alcohol", "alternate", "enzymes", "diabetes
 export default function App() {
   const [state, setState] = useState<PathwayState>(initialState);
   const [copied, setCopied] = useState(false);
+  const [resetCount, setResetCount] = useState(0);
   const index = state.currentStep === "result" ? order.length : Math.max(1, order.indexOf(state.currentStep) + 1);
   const CurrentForm = state.currentStep === "result" ? undefined : stepForms[state.currentStep];
 
@@ -52,7 +53,7 @@ export default function App() {
       if (previous) setState({ ...state, currentStep: previous, history: state.history.slice(0, -1), result: undefined });
     }
     if (action === "copy" && state.result) {
-      const summary = ["MASLD Clinical Care Pathway (development)", state.result.title, state.result.message, ...state.result.summary].join("\n");
+      const summary = buildResultSummaryText(state, state.result);
       void navigator.clipboard.writeText(summary).then(() => setCopied(true));
     }
   }
@@ -85,11 +86,11 @@ export default function App() {
             </Typography>
             <Typography variant="h2" component="h2">{titles[state.currentStep]}</Typography>
           </Box>
-          <Button variant="text" onClick={() => { setState(initialState); setCopied(false); }}>Start over</Button>
+          <Button variant="text" onClick={() => { setState(initialState); setCopied(false); setResetCount((count) => count + 1); }}>Start over</Button>
         </Box>
         <LinearProgress variant="determinate" value={(index / order.length) * 100} />
-        <Box component="form" id="pathway-form" key={state.currentStep} onSubmit={submit} onClick={click} sx={{ p: { xs: 2.25, sm: 3.25 } }}>
-          {state.result ? <ResultPanel result={state.result} /> : CurrentForm && <CurrentForm state={state} />}
+        <Box component="form" id="pathway-form" key={`${state.currentStep}-${resetCount}`} onSubmit={submit} onClick={click} sx={{ p: { xs: 2.25, sm: 3.25 } }}>
+          {state.result ? <ResultPanel result={state.result} state={state} /> : CurrentForm && <CurrentForm state={state} />}
           {copied && <Alert severity="success" sx={{ mt: 2 }}>Copied to clipboard</Alert>}
         </Box>
       </Paper>
