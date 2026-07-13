@@ -34,6 +34,8 @@ export const config = {
   },
   fib4: {
     lowRiskUpperExclusive: 1.3,
+    olderAdultAgeLowerInclusive: 65,
+    olderAdultLowRiskUpperExclusive: 2,
     indeterminateUpperInclusive: 2.67,
   },
   app: {

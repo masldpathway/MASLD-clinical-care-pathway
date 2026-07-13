@@ -61,6 +61,25 @@ test("start over clears first-step inputs without leaving the page", async ({ pa
   await expect(page.getByRole("spinbutton", { name: "Systolic blood pressure (mmHg)", exact: true })).toHaveValue("");
 });
 
+test("back navigation removes abandoned downstream answers from the report", async ({ page }) => {
+  await page.goto("/");
+
+  await fillMetabolicStep(page);
+  await fillNumber(page, "Standard drinks per week", "90");
+  await page.getByRole("button", { name: "Continue" }).click();
+
+  await expect(page.getByRole("heading", { name: "Pathway recommendation" })).toBeVisible();
+  await page.getByRole("button", { name: "Back" }).click();
+  await page.getByRole("button", { name: "Back" }).click();
+
+  await fillNumber(page, "Waist circumference", "101");
+  await page.getByRole("button", { name: "Continue" }).click();
+
+  await expect(page.getByRole("heading", { name: "Pathway recommendation" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Reported" })).not.toContainText("Alcohol consumption");
+  await expect(await resultSection(page)).toContainText("Metabolic syndrome criteria met: 2 of 5.");
+});
+
 test("non-diabetes FIB-4 low-risk path shows reported values, factual results, and recommendations", async ({ page }) => {
   await page.goto("/");
 
@@ -75,7 +94,8 @@ test("non-diabetes FIB-4 low-risk path shows reported values, factual results, a
   await expect(page.getByRole("heading", { name: "Pathway recommendation" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Reported" })).toContainText("Alcohol consumption");
   await expect(await resultSection(page)).toContainText("FIB-4: 1.29.");
-  await expect(await recommendationSection(page)).toContainText("Repeat FIB-4 every 2 years.");
+  await expect(await recommendationSection(page)).toContainText("Do not refer to hepatology.");
+  await expect(await recommendationSection(page)).toContainText("Repeat FIB-4 in 1-2 years.");
   await expect(page.getByRole("heading", { name: "Calculated:" })).toHaveCount(0);
 });
 

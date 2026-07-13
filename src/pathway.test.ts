@@ -128,9 +128,18 @@ describe("MASLD pathway engine", () => {
   it("calculates FIB-4 and routes exact boundaries", () => {
     const low = submit(start("fib4"), { age: "50", ast: "25.8", alt: "100", platelets: "100" });
     expect((low.answers.fib4 as { score: number }).score).toBe(1.29);
-    expect(low.result?.title).toBe("Repeat FIB-4 every 2 years");
+    expect(low.result?.title).toBe("Continue management in primary care");
     expect(submit(start("fib4"), { age: "50", ast: "26", alt: "100", platelets: "100" }).currentStep).toBe("elastography");
-    expect(submit(start("fib4"), { age: "60", ast: "50", alt: "100", platelets: "100" }).currentStep).toBe("elastography");
+    expect(submit(start("fib4"), { age: "50", ast: "53.4", alt: "100", platelets: "100" }).currentStep).toBe("elastography");
+    expect(submit(start("fib4"), { age: "50", ast: "53.6", alt: "100", platelets: "100" }).result?.title).toBe("Refer to hepatology");
+  });
+
+  it("uses older adult FIB-4 low-risk cutoff at age 65 and above", () => {
+    expect(submit(start("fib4"), { age: "64.99", ast: "30.77", alt: "100", platelets: "100" }).currentStep).toBe("elastography");
+    expect(submit(start("fib4"), { age: "65", ast: "30.6153846", alt: "100", platelets: "100" }).result?.title).toBe("Continue management in primary care");
+    expect(submit(start("fib4"), { age: "100", ast: "20", alt: "100", platelets: "100" }).currentStep).toBe("elastography");
+    expect(submit(start("fib4"), { age: "100", ast: "26.7", alt: "100", platelets: "100" }).currentStep).toBe("elastography");
+    expect(submit(start("fib4"), { age: "100", ast: "26.8", alt: "100", platelets: "100" }).result?.title).toBe("Refer to hepatology");
   });
 
   it("calculates APP and routes exact boundaries", () => {
@@ -139,14 +148,20 @@ describe("MASLD pathway engine", () => {
     expect(submit(start("app"), { albumin: "3", platelets: "3090" }).result?.title).toBe("Repeat APP in 1 year");
   });
 
-  it("refers at 8 kPa and repeats FIB-4 below 8 kPa", () => {
-    const answers = { fib4: { score: 1.3 } };
+  it("refers at 8 kPa and repeats FIB-4 below 8 kPa with intensified risk-factor modification", () => {
+    const answers = { fib4: { age: 65, score: 1.3 } };
     const referral = submit(start("elastography", answers), { kpa: "8" });
     expect(referral.result?.title).toBe("Refer to hepatology");
     expect(referral.result?.summary).toContain("Intensify cardiometabolic risk-factor modification.");
     const repeat = submit(start("elastography", answers), { kpa: "7.99" });
     expect(repeat.result?.title).toBe("Repeat FIB-4 in 1 year");
-    expect(repeat.result?.summary).toContain("Continue cardiometabolic risk-factor modification.");
+    expect(repeat.result?.summary).toContain("Repeat FIB-4 in 1 year.");
+    expect(repeat.result?.summary).toContain("Intensify cardiometabolic risk-factor modification.");
+
+    const youngerRepeat = submit(start("elastography", { fib4: { age: 64.99, score: 1.3 } }), { kpa: "7.99" });
+    expect(youngerRepeat.result?.title).toBe("Repeat FIB-4 in 1 year");
+    expect(youngerRepeat.result?.summary).toContain("Repeat FIB-4 in 1 year.");
+    expect(youngerRepeat.result?.summary).toContain("Intensify cardiometabolic risk-factor modification.");
   });
 
   it("adds repeat elastography consideration above 10 kPa", () => {

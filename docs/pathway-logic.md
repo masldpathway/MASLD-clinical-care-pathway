@@ -23,9 +23,15 @@ flowchart TD
     DIABETES -- No --> FIB4[Calculate FIB-4:<br/>age x AST / &#40;platelets x sqrt&#40;ALT&#41;&#41;]
     DIABETES -- Yes --> APP[Calculate APP:<br/>albumin x platelets / 1000]
 
-    FIB4 --> FIB4_LOW{FIB-4 &lt; 1.3?}
-    FIB4_LOW -- Yes --> FIB4_2Y([Repeat FIB-4 every 2 years])
-    FIB4_LOW -- No --> ELASTOGRAPHY[Perform elastography]
+    FIB4 --> FIB4_AGE{Age &gt;= 65 years?}
+    FIB4_AGE -- No --> FIB4_LOW_UNDER65{FIB-4 &lt; 1.3?}
+    FIB4_AGE -- Yes --> FIB4_LOW_65{FIB-4 &lt; 2.0?}
+    FIB4_LOW_UNDER65 -- Yes --> FIB4_1Y_PRIMARY([Do not refer to hepatology;<br/>continue management in primary care;<br/>repeat FIB-4 in 1-2 years])
+    FIB4_LOW_65 -- Yes --> FIB4_1Y_PRIMARY
+    FIB4_LOW_UNDER65 -- No --> FIB4_ADVANCED{FIB-4 &gt; 2.67?}
+    FIB4_LOW_65 -- No --> FIB4_ADVANCED
+    FIB4_ADVANCED -- Yes --> FIB4_REFER([Refer to hepatology for further management<br/>and intensify cardio-metabolic risk reduction])
+    FIB4_ADVANCED -- "No: intermediate range<br/>through 2.67 inclusive" --> ELASTOGRAPHY[Perform noninvasive fibrosis staging:<br/>FibroScan, MR elastography,<br/>or shear wave elastography]
 
     APP --> APP_LOW{APP &lt;= 5.52?}
     APP_LOW -- Yes --> ELASTOGRAPHY
@@ -37,10 +43,13 @@ flowchart TD
     KPA -- Yes --> KPA_10{kPa &gt; 10?}
     KPA_10 -- No --> REFERRAL([Refer to hepatology and intensify<br/>cardiometabolic risk-factor modification])
     KPA_10 -- Yes --> REFERRAL_REPEAT([Refer to hepatology, intensify<br/>cardiometabolic risk-factor modification,<br/>and consider repeat elastography in 1-2 years])
-    KPA -- No --> FIB4_1Y([Repeat FIB-4 in 1 year and continue<br/>cardiometabolic risk-factor modification])
+    KPA -- No --> FIB4_1Y([Repeat FIB-4 in 1 year and intensify<br/>cardiometabolic risk-factor modification])
 ```
 
 ## Branch Criteria
+
+Age is captured on the FIB-4 screen and used for FIB-4 calculation and
+age-specific FIB-4 thresholds.
 
 The five metabolic syndrome criteria are:
 
@@ -84,10 +93,21 @@ limit is inclusive: female `<= 10 drinks/week` (`<= 20 g/day`) and male
 pathway as configured MetALD range unless they meet the higher configured ALD
 threshold.
 
+FIB-4 uses age from the FIB-4 screen: `(age x AST) / (platelet count x
+sqrt(ALT))`. For patients younger than `65`, FIB-4 `< 1.3` rules out advanced
+fibrosis. For patients age `>= 65`, FIB-4 `< 2.0` rules out advanced fibrosis.
+The low-risk recommendation is not to refer to hepatology, to continue
+management in primary care, and to repeat FIB-4 in `1-2 years`. FIB-4 values from
+the applicable low-risk cutoff through `2.67` inclusive are intermediate and
+route to noninvasive fibrosis staging by FibroScan, MR elastography, or shear
+wave elastography. FIB-4 `> 2.67` is treated as advanced fibrosis risk and
+routes to hepatology referral with intensified cardio-metabolic risk reduction.
+
+If elastography is below the configured referral threshold after intermediate
+fibrosis staging, repeat FIB-4 in `1 year` and intensify cardiometabolic
+risk-factor modification.
+
 ## Prototype Notes
 
-- `src/config.ts` defines `fib4.indeterminateUpperInclusive` as `2.67`, matching the
-  source PDF's `1.3-2.67` and `>2.67` branches. The current app routes both
-  ranges to elastography, so they are combined in the executable diagram.
 - The APP middle range `> 5.52` and `< 9.27` is treated as a grey zone and
   routes to confirmatory secondary testing such as FibroScan/elastography.

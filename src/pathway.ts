@@ -139,12 +139,32 @@ function submitFib4(state: PathwayState, values: FormValues): PathwayState {
     score: 0,
   };
   answers.score = (answers.age * answers.ast) / (answers.platelets * Math.sqrt(answers.alt));
-  if (answers.score < config.fib4.lowRiskUpperExclusive) {
+  const lowRiskUpperExclusive = answers.age >= config.fib4.olderAdultAgeLowerInclusive
+    ? config.fib4.olderAdultLowRiskUpperExclusive
+    : config.fib4.lowRiskUpperExclusive;
+  if (answers.score < lowRiskUpperExclusive) {
     return transition(state, "fib4", answers, "result", {
       score: `FIB-4 ${answers.score.toFixed(2)}`,
-      title: "Repeat FIB-4 every 2 years",
-      message: "The calculated FIB-4 is in the configured low-risk range. Repeat FIB-4 screening every 2 years.",
-      summary: [`Calculated FIB-4: ${answers.score.toFixed(2)}.`],
+      title: "Continue management in primary care",
+      message: "The calculated FIB-4 is in the configured low-risk range. Do not refer to hepatology; continue management in primary care and repeat FIB-4 in 1-2 years.",
+      summary: [
+        `Calculated FIB-4: ${answers.score.toFixed(2)}.`,
+        "Do not refer to hepatology.",
+        "Continue management in primary care.",
+        "Repeat FIB-4 in 1-2 years.",
+      ],
+    });
+  }
+  if (answers.score > config.fib4.indeterminateUpperInclusive) {
+    return transition(state, "fib4", answers, "result", {
+      score: `FIB-4 ${answers.score.toFixed(2)}`,
+      title: "Refer to hepatology",
+      message: "The calculated FIB-4 is above the configured advanced-fibrosis cutoff. Refer to hepatology for further management and intensify cardio-metabolic risk reduction.",
+      summary: [
+        `Calculated FIB-4: ${answers.score.toFixed(2)}.`,
+        "Refer to hepatology for further management.",
+        "Intensify cardio-metabolic risk reduction.",
+      ],
     });
   }
   return transition(state, "fib4", answers, "elastography");
@@ -166,7 +186,7 @@ function submitApp(state: PathwayState, values: FormValues): PathwayState {
 
 function submitElastography(state: PathwayState, values: FormValues): PathwayState {
   const answers = { kpa: number(values.kpa) };
-  const fib4 = state.answers.fib4 as { score: number } | undefined;
+  const fib4 = state.answers.fib4 as { age?: number, score: number } | undefined;
   const app = state.answers.app as { score: number } | undefined;
   const previousScore = fib4
     ? `Calculated FIB-4: ${fib4.score.toFixed(2)}.`
@@ -191,12 +211,12 @@ function submitElastography(state: PathwayState, values: FormValues): PathwaySta
   return transition(state, "elastography", answers, "result", {
     score: `${answers.kpa.toFixed(1)} kPa`,
     title: "Repeat FIB-4 in 1 year",
-    message: "Elastography is below the configured referral threshold. Repeat FIB-4 in 1 year and continue cardiometabolic risk-factor modification.",
+    message: "Elastography is below the configured referral threshold. Repeat FIB-4 in 1 year and intensify cardiometabolic risk-factor modification.",
     summary: [
       previousScore,
       `Elastography: ${answers.kpa.toFixed(1)} kPa.`,
       "Repeat FIB-4 in 1 year.",
-      "Continue cardiometabolic risk-factor modification.",
+      "Intensify cardiometabolic risk-factor modification.",
     ],
   });
 }

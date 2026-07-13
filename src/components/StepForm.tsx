@@ -152,7 +152,7 @@ function AppScore({ state }: Props) {
 
 function Elastography({ state }: Props) {
   const answers = saved(state, "elastography");
-  return <Layout description="Enter the FibroScan, shear-wave elastography, or other elastography result." actions={<Actions nextLabel="View recommendation" />}>
+  return <Layout description="Enter the FibroScan, MR elastography, shear-wave elastography, or other elastography result." actions={<Actions nextLabel="View recommendation" />}>
     <Input id="kpa" name="kpa" label="Liver stiffness (kPa)" type="number" min="0" step="any" required defaultValue={text(answers.kpa)} />
   </Layout>;
 }
