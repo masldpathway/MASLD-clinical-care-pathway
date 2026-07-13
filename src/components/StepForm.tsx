@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   Box,
   FormControl,
@@ -152,8 +152,22 @@ function AppScore({ state }: Props) {
 
 function Elastography({ state }: Props) {
   const answers = saved(state, "elastography");
-  return <Layout description="Enter the FibroScan, MR elastography, shear-wave elastography, or other elastography result." actions={<Actions nextLabel="View recommendation" />}>
-    <Input id="kpa" name="kpa" label="Liver stiffness (kPa)" type="number" min="0" step="any" required defaultValue={text(answers.kpa)} />
+  const initialStatus = text(answers.status) || "available";
+  const [status, setStatus] = useState(initialStatus);
+
+  return <Layout description="Enter the FibroScan, MR elastography, shear-wave elastography, or other elastography result, or select the option needed to arrange testing." actions={<Actions nextLabel="View recommendation" />}>
+    <Select
+      id="status"
+      name="status"
+      label="Has elastography been completed?"
+      required
+      value={status}
+      onChange={(event) => setStatus(event.target.value)}
+      options={[["available", "Yes, result available"], ["not-done", "No, elastography not done"]]}
+    />
+    {status === "available" ? (
+      <Input id="kpa" name="kpa" label="Liver stiffness (kPa)" type="number" min="0" step="any" required defaultValue={text(answers.kpa)} />
+    ) : null}
   </Layout>;
 }
 

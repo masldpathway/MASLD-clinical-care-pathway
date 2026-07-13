@@ -150,25 +150,36 @@ describe("MASLD pathway engine", () => {
 
   it("refers at 8 kPa and repeats FIB-4 below 8 kPa with intensified risk-factor modification", () => {
     const answers = { fib4: { age: 65, score: 1.3 } };
-    const referral = submit(start("elastography", answers), { kpa: "8" });
+    const referral = submit(start("elastography", answers), { status: "available", kpa: "8" });
     expect(referral.result?.title).toBe("Refer to hepatology");
     expect(referral.result?.summary).toContain("Intensify cardiometabolic risk-factor modification.");
-    const repeat = submit(start("elastography", answers), { kpa: "7.99" });
+    const repeat = submit(start("elastography", answers), { status: "available", kpa: "7.99" });
     expect(repeat.result?.title).toBe("Repeat FIB-4 in 1 year");
     expect(repeat.result?.summary).toContain("Repeat FIB-4 in 1 year.");
     expect(repeat.result?.summary).toContain("Intensify cardiometabolic risk-factor modification.");
 
-    const youngerRepeat = submit(start("elastography", { fib4: { age: 64.99, score: 1.3 } }), { kpa: "7.99" });
+    const youngerRepeat = submit(start("elastography", { fib4: { age: 64.99, score: 1.3 } }), { status: "available", kpa: "7.99" });
     expect(youngerRepeat.result?.title).toBe("Repeat FIB-4 in 1 year");
     expect(youngerRepeat.result?.summary).toContain("Repeat FIB-4 in 1 year.");
     expect(youngerRepeat.result?.summary).toContain("Intensify cardiometabolic risk-factor modification.");
   });
 
+  it("lists elastography referral options when elastography has not been done", () => {
+    const answers = { fib4: { score: 1.3 } };
+    const result = submit(start("elastography", answers), { status: "not-done" });
+    expect(result.result?.title).toBe("Refer for elastography");
+    expect(result.result?.summary).toContain("Elastography not done.");
+    expect(result.result?.summary).toContain("Refer for elastography.");
+    expect(result.result?.summary).toContain("FibroScan: Refer to hepatology or local expert to have a FibroScan.");
+    expect(result.result?.summary).toContain("Shear wave elastography: Refer to radiology at QEII HSC, Central Zone.");
+    expect(result.result?.summary).toContain("MR elastography: Order an MRI liver with elastography at QEII HSC, Central Zone.");
+  });
+
   it("adds repeat elastography consideration above 10 kPa", () => {
     const answers = { fib4: { score: 1.3 } };
-    expect(submit(start("elastography", answers), { kpa: "10" }).result?.summary)
+    expect(submit(start("elastography", answers), { status: "available", kpa: "10" }).result?.summary)
       .not.toContain("Consider repeat elastography in 1-2 years.");
-    expect(submit(start("elastography", answers), { kpa: "10.01" }).result?.summary)
+    expect(submit(start("elastography", answers), { status: "available", kpa: "10.01" }).result?.summary)
       .toContain("Consider repeat elastography in 1-2 years.");
   });
 });

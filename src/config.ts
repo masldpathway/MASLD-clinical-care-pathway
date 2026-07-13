@@ -45,5 +45,22 @@ export const config = {
   elastography: {
     referralThresholdKpa: 8,
     repeatConsiderationThresholdKpa: 10,
+    notDoneOptions: [
+      {
+        value: "fibroscan",
+        label: "FibroScan",
+        recommendation: "Refer to hepatology or local expert to have a FibroScan.",
+      },
+      {
+        value: "shear-wave",
+        label: "Shear wave elastography",
+        recommendation: "Refer to radiology at QEII HSC, Central Zone.",
+      },
+      {
+        value: "mr-elastography",
+        label: "MR elastography",
+        recommendation: "Order an MRI liver with elastography at QEII HSC, Central Zone.",
+      },
+    ],
   },
 } as const;

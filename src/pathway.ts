@@ -185,12 +185,28 @@ function submitApp(state: PathwayState, values: FormValues): PathwayState {
 }
 
 function submitElastography(state: PathwayState, values: FormValues): PathwayState {
-  const answers = { kpa: number(values.kpa) };
   const fib4 = state.answers.fib4 as { age?: number, score: number } | undefined;
   const app = state.answers.app as { score: number } | undefined;
   const previousScore = fib4
     ? `Calculated FIB-4: ${fib4.score.toFixed(2)}.`
     : `Calculated APP: ${app!.score.toFixed(2)}.`;
+  if (values.status === "not-done") {
+    const recommendations = config.elastography.notDoneOptions.map(
+      (option) => `${option.label}: ${option.recommendation}`,
+    );
+    return transition(state, "elastography", { status: "not-done" }, "result", {
+      title: "Refer for elastography",
+      message: "Elastography has not been done. Refer for elastography using one of the listed options.",
+      summary: [
+        previousScore,
+        "Elastography not done.",
+        "Refer for elastography.",
+        ...recommendations,
+      ],
+    });
+  }
+
+  const answers = { status: "available", kpa: number(values.kpa) };
   if (answers.kpa >= config.elastography.referralThresholdKpa) {
     const summary = [
       previousScore,

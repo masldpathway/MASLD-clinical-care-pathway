@@ -120,6 +120,9 @@ export function reportedItems(state: PathwayState): SectionItem[] {
       label: "Platelet count",
       value: `${String(app.platelets)} K/microL`,
     });
+  if (elastography.status === "not-done") {
+    items.push({ label: "Elastography", value: "Not done" });
+  }
   if (elastography.kpa !== undefined)
     items.push({
       label: "Elastography",
@@ -165,7 +168,10 @@ const isCalculatedSummaryItem = (item: string) =>
   item.startsWith("Calculated FIB-4:") || item.startsWith("Calculated APP:");
 
 const isRecommendationSummaryItem = (item: string) =>
-  /^(Refer|Do not refer|Intensify|Consider|Repeat|Continue|Exit)\b/.test(item);
+  /^(FibroScan|Shear wave elastography|MR elastography|Refer|Order|Do not refer|Intensify|Consider|Repeat|Continue|Exit)\b/.test(item);
+
+const isElastographyOptionItem = (item: string) =>
+  /^(FibroScan|Shear wave elastography|MR elastography):/.test(item);
 
 const punctuate = (item: string) => (/[.!?]$/.test(item) ? item : `${item}.`);
 
@@ -201,6 +207,9 @@ export function recommendationItems(result: Result) {
 }
 
 export function buildResultSummaryText(state: PathwayState, result: Result) {
+  const recommendations = recommendationItems(result).map((item) =>
+    isElastographyOptionItem(item) ? `  - ${item}` : `- ${item}`,
+  );
   const lines = [
     "MASLD Clinical Care Pathway (development)",
     "",
@@ -211,7 +220,7 @@ export function buildResultSummaryText(state: PathwayState, result: Result) {
     ...resultItems(state, result).map((item) => `- ${item}`),
     "",
     "Recommendation:",
-    ...recommendationItems(result).map((item) => `- ${item}`),
+    ...recommendations,
   ];
 
   return lines.join("\n");
@@ -258,6 +267,9 @@ function Section({ title, items }: { title: string; items: SectionItem[] }) {
 }
 
 function BulletSection({ title, items }: { title: string; items: string[] }) {
+  const elastographyOptions = items.filter(isElastographyOptionItem);
+  const groupedItems = items.filter((item) => !isElastographyOptionItem(item));
+
   return (
     <Box
       component="section"
@@ -269,10 +281,19 @@ function BulletSection({ title, items }: { title: string; items: string[] }) {
       </Typography>
       {items.length > 0 && (
         <Stack component="ul" spacing={0.75} sx={{ mb: 0, pl: 2.5, mt: 1.5 }}>
-          {items.map((item) => (
-            <Typography component="li" variant="body2" key={item}>
-              {item}
-            </Typography>
+          {groupedItems.map((item) => (
+            <Box component="li" key={item}>
+              <Typography variant="body2">{item}</Typography>
+              {item === "Refer for elastography." && elastographyOptions.length > 0 && (
+                <Stack component="ul" spacing={0.5} sx={{ mt: 0.75, pl: 2.5 }}>
+                  {elastographyOptions.map((option) => (
+                    <Typography component="li" variant="body2" key={option}>
+                      {option}
+                    </Typography>
+                  ))}
+                </Stack>
+              )}
+            </Box>
           ))}
         </Stack>
       )}

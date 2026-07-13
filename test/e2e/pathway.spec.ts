@@ -109,6 +109,7 @@ test("diabetes APP referral path separates result facts from recommendation acti
   await fillNumber(page, "Albumin (g/dL)", "3.4");
   await fillNumber(page, "Platelet count (K/microL)", "900");
   await page.getByRole("button", { name: "Calculate APP" }).click();
+  await choose(page, "Has elastography been completed?", "Yes, result available");
   await fillNumber(page, "Liver stiffness (kPa)", "9");
   await page.getByRole("button", { name: "View recommendation" }).click();
 
@@ -134,6 +135,7 @@ test("copy summary includes the full structured report", async ({ page, context,
   await fillNumber(page, "Albumin (g/dL)", "3.4");
   await fillNumber(page, "Platelet count (K/microL)", "900");
   await page.getByRole("button", { name: "Calculate APP" }).click();
+  await choose(page, "Has elastography been completed?", "Yes, result available");
   await fillNumber(page, "Liver stiffness (kPa)", "9");
   await page.getByRole("button", { name: "View recommendation" }).click();
   await page.getByRole("button", { name: "Copy summary for EMR" }).click();
@@ -148,4 +150,27 @@ test("copy summary includes the full structured report", async ({ page, context,
   expect(clipboardText).toContain("Recommendation:");
   expect(clipboardText).toContain("- Refer to hepatology.");
   expect(clipboardText).toContain("- Intensify cardiometabolic risk-factor modification.");
+});
+
+test("elastography not done path lists testing referral options", async ({ page }) => {
+  await page.goto("/");
+
+  await fillMetabolicStep(page);
+  await completeSharedScreening(page);
+  await fillEnzymes(page, "100", "26");
+  await answerDiabetes(page, "No");
+  await fillNumber(page, "Age (years)", "50");
+  await fillNumber(page, "Platelet count (10^9/L)", "100");
+  await page.getByRole("button", { name: "Calculate FIB-4" }).click();
+  await choose(page, "Has elastography been completed?", "No, elastography not done");
+  await page.getByRole("button", { name: "View recommendation" }).click();
+
+  await expect(page.getByRole("heading", { name: "Pathway recommendation" })).toBeVisible();
+  await expect(await resultSection(page)).toContainText("Elastography not done.");
+  const recommendation = await recommendationSection(page);
+  await expect(recommendation).toContainText("Refer for elastography.");
+  const nestedOptions = recommendation.locator("ul ul");
+  await expect(nestedOptions).toContainText("FibroScan: Refer to hepatology or local expert to have a FibroScan.");
+  await expect(nestedOptions).toContainText("Shear wave elastography: Refer to radiology at QEII HSC, Central Zone.");
+  await expect(nestedOptions).toContainText("MR elastography: Order an MRI liver with elastography at QEII HSC, Central Zone.");
 });

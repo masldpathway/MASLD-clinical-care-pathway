@@ -39,7 +39,9 @@ flowchart TD
     APP_HIGH -- Yes --> APP_1Y([Repeat APP in 1 year])
     APP_HIGH -- No --> ELASTOGRAPHY
 
-    ELASTOGRAPHY --> KPA{kPa &gt;= 8?}
+    ELASTOGRAPHY --> ELASTOGRAPHY_DONE{Elastography completed?}
+    ELASTOGRAPHY_DONE -- No --> ELASTOGRAPHY_OPTIONS([Refer for elastography:<br/>FibroScan: refer to hepatology or local expert;<br/>Shear wave: refer to radiology at QEII HSC, Central Zone;<br/>MR elastography: order MRI liver with elastography at QEII HSC, Central Zone])
+    ELASTOGRAPHY_DONE -- Yes --> KPA{kPa &gt;= 8?}
     KPA -- Yes --> KPA_10{kPa &gt; 10?}
     KPA_10 -- No --> REFERRAL([Refer to hepatology and intensify<br/>cardiometabolic risk-factor modification])
     KPA_10 -- Yes --> REFERRAL_REPEAT([Refer to hepatology, intensify<br/>cardiometabolic risk-factor modification,<br/>and consider repeat elastography in 1-2 years])
@@ -106,6 +108,13 @@ routes to hepatology referral with intensified cardio-metabolic risk reduction.
 If elastography is below the configured referral threshold after intermediate
 fibrosis staging, repeat FIB-4 in `1 year` and intensify cardiometabolic
 risk-factor modification.
+
+If elastography has not been done when the pathway reaches noninvasive fibrosis
+staging, the recommendation is to refer for elastography and list all three
+testing options. FibroScan recommends referral to hepatology or a local expert
+to have a FibroScan. Shear wave elastography recommends referral to radiology at
+QEII HSC, Central Zone. MR elastography recommends ordering an MRI liver with
+elastography at QEII HSC, Central Zone.
 
 ## Prototype Notes
 
