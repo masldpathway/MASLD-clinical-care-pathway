@@ -109,7 +109,7 @@ test("diabetes APP referral path separates result facts from recommendation acti
   await fillNumber(page, "Albumin (g/dL)", "3.4");
   await fillNumber(page, "Platelet count (K/microL)", "900");
   await page.getByRole("button", { name: "Calculate APP" }).click();
-  await choose(page, "Has elastography been completed?", "Yes, result available");
+  await expect(page.getByLabel("Has elastography been completed?")).toHaveText("Yes, result available");
   await fillNumber(page, "Liver stiffness (kPa)", "9");
   await page.getByRole("button", { name: "View recommendation" }).click();
 
@@ -135,7 +135,7 @@ test("copy summary includes the full structured report", async ({ page, context,
   await fillNumber(page, "Albumin (g/dL)", "3.4");
   await fillNumber(page, "Platelet count (K/microL)", "900");
   await page.getByRole("button", { name: "Calculate APP" }).click();
-  await choose(page, "Has elastography been completed?", "Yes, result available");
+  await expect(page.getByLabel("Has elastography been completed?")).toHaveText("Yes, result available");
   await fillNumber(page, "Liver stiffness (kPa)", "9");
   await page.getByRole("button", { name: "View recommendation" }).click();
   await page.getByRole("button", { name: "Copy summary for EMR" }).click();
