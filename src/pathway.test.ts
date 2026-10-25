@@ -132,11 +132,15 @@ describe("MASLD pathway engine", () => {
     expect((astAtCutoff.answers.enzymes as { considerAlternateCause: boolean }).considerAlternateCause).toBe(true);
   });
 
-  it.each([['yes', 'app'], ['no', 'fib4']])("asks about diabetes (%s) before enzymes and routes to %s", (hasDiabetes, next) => {
-    const diabetes = submit(start("diabetes"), { hasDiabetes });
-    expect(diabetes.currentStep).toBe("enzymes");
-    const enzymes = submit(diabetes, { alt: "100", ast: "26" });
-    expect(enzymes.currentStep).toBe(next);
+  it("routes no diabetes directly to FIB-4 and diabetes through enzyme review to APP", () => {
+    const no = submit(start("diabetes"), { hasDiabetes: "no" });
+    expect(no.currentStep).toBe("fib4");
+    expect(no.history).toEqual(["diabetes"]);
+    expect(no.answers.enzymes).toBeUndefined();
+    const yes = submit(start("diabetes"), { hasDiabetes: "yes" });
+    expect(yes.currentStep).toBe("enzymes");
+    const enzymes = submit(yes, { alt: "100", ast: "26" });
+    expect(enzymes.currentStep).toBe("app");
     expect(enzymes.history).toEqual(["diabetes", "enzymes"]);
   });
 
@@ -310,3 +314,15 @@ it.each([{ fib4: { score: 1.3 } }, { app: { score: 8 } }])(
     expect(summary).not.toMatch(/NaN|undefined/);
   },
 );
+
+
+it.each([
+  ["199.99", "199.99", false], ["200", "199.99", true], ["199.99", "200", true],
+])("direct FIB-4 preserves the aminotransferase flag at ALT %s and AST %s", (alt, ast, flagged) => {
+  const state = submit(submit(start("diabetes"), { hasDiabetes: "no" }), { age: "50", alt, ast, platelets: "1000" });
+  expect(state.answers.enzymes).toBeUndefined();
+  expect(state.answers.fib4).toMatchObject({ considerAlternateCause: flagged });
+  expect(state.result).toBeDefined();
+  const copied = buildResultSummaryText(state, state.result!);
+  expect(copied).toContain(`Aminotransferase soft cutoff flag: ${flagged ? "Consider alternate cause" : "Not flagged"}`);
+});

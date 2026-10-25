@@ -166,7 +166,7 @@ function submitEnzymes(state: PathwayState, values: FormValues): PathwayState {
 
 function submitDiabetes(state: PathwayState, values: FormValues): PathwayState {
   const answers = { hasDiabetes: String(values.hasDiabetes) };
-  return transition(state, "diabetes", answers, "enzymes");
+  return transition(state, "diabetes", answers, answers.hasDiabetes === "yes" ? "enzymes" : "fib4");
 }
 
 function submitFib4(state: PathwayState, values: FormValues): PathwayState {
@@ -175,6 +175,8 @@ function submitFib4(state: PathwayState, values: FormValues): PathwayState {
     alt: number(values.alt),
     ast: number(values.ast),
     platelets: number(values.platelets),
+    considerAlternateCause: number(values.alt) >= config.aminotransferases.thresholdUL ||
+      number(values.ast) >= config.aminotransferases.thresholdUL,
     score: 0,
   };
   answers.score = (answers.age * answers.ast) / (answers.platelets * Math.sqrt(answers.alt));

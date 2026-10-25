@@ -147,7 +147,7 @@ export function calculatedItems(state: PathwayState): SectionItem[] {
     state,
     "enzymes",
   );
-  const fib4 = answer<{ score?: number }>(state, "fib4");
+  const fib4 = answer<{ score?: number; considerAlternateCause?: boolean }>(state, "fib4");
   const app = answer<{ score?: number }>(state, "app");
   const items: SectionItem[] = [];
 
@@ -157,10 +157,11 @@ export function calculatedItems(state: PathwayState): SectionItem[] {
       value: `${metabolic.criteriaCount} of 5`,
     });
   }
-  if (enzymes.considerAlternateCause !== undefined) {
+  const considerAlternateCause = fib4.considerAlternateCause ?? enzymes.considerAlternateCause;
+  if (considerAlternateCause !== undefined) {
     items.push({
       label: "Aminotransferase soft cutoff flag",
-      value: enzymes.considerAlternateCause
+      value: considerAlternateCause
         ? "Consider alternate cause"
         : "Not flagged",
     });

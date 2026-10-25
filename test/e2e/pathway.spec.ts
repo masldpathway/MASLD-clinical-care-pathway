@@ -80,7 +80,8 @@ test("non-diabetes FIB-4 low-risk path shows reported values, factual results, a
   await fillMetabolicStep(page);
   await completeSharedScreening(page);
   await answerDiabetes(page, "No");
-  await fillEnzymes(page);
+  await fillNumber(page, "ALT (U/L)", "100");
+  await fillNumber(page, "AST (U/L)", "25.8");
   await fillNumber(page, "Age (years)", "50");
   await fillNumber(page, "Platelet count (10^9/L)", "100");
   await page.getByRole("button", { name: "Calculate FIB-4" }).click();
@@ -150,7 +151,8 @@ test("elastography not done path lists testing referral options", async ({ page 
   await fillMetabolicStep(page);
   await completeSharedScreening(page);
   await answerDiabetes(page, "No");
-  await fillEnzymes(page, "100", "26");
+  await fillNumber(page, "ALT (U/L)", "100");
+  await fillNumber(page, "AST (U/L)", "26");
   await fillNumber(page, "Age (years)", "50");
   await fillNumber(page, "Platelet count (10^9/L)", "100");
   await page.getByRole("button", { name: "Calculate FIB-4" }).click();
@@ -235,7 +237,7 @@ test("diabetes comes before enzymes and changing it clears downstream answers", 
   await expect(page.getByRole("button", { name: "Yes", exact: true })).toHaveAttribute("aria-pressed", "true");
   await answerDiabetes(page, "No");
   await expect(page.getByRole("spinbutton", { name: "ALT (U/L)", exact: true })).toHaveValue("");
-  await fillEnzymes(page);
+  await expect(page.getByRole("button", { name: "Continue", exact: true })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Calculate FIB-4", exact: true })).toBeVisible();
 });
 
@@ -253,7 +255,7 @@ test("sex is required when metabolic syndrome assessment is skipped", async ({ p
 });
 
 
-test("missing enzymes recommends bloodwork and returns to the same step", async ({ page }) => {
+test("missing FIB-4 inputs recommend bloodwork and return to the same step", async ({ page }) => {
   await page.goto("/");
   await fillMetabolicStep(page);
   await completeSharedScreening(page);
@@ -265,7 +267,6 @@ test("missing enzymes recommends bloodwork and returns to the same step", async 
   await page.getByRole("button", { name: "Back", exact: true }).click();
   await expect(page.getByRole("spinbutton", { name: "ALT (U/L)", exact: true })).toHaveValue("100");
   await fillNumber(page, "AST (U/L)", "25.8");
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
   await fillNumber(page, "Age (years)", "50");
   await page.getByRole("button", { name: "I don't have the required values", exact: true }).click();
   await expect(await recommendationSection(page)).toContainText("Required bloodwork to complete this pathway: ALT, AST, platelet count.");
@@ -310,7 +311,8 @@ test("return link and copied summary restore entered values in a new tab", async
   await fillMetabolicStep(page);
   await completeSharedScreening(page, "3");
   await answerDiabetes(page, "No");
-  await fillEnzymes(page);
+  await fillNumber(page, "ALT (U/L)", "100");
+  await fillNumber(page, "AST (U/L)", "25.8");
   await fillNumber(page, "Age (years)", "50");
   await page.getByRole("button", { name: "I don't have the required values", exact: true }).click();
   const link = page.getByRole("link", { name: "Return to this step when the required values are available to complete the pathway." });

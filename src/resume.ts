@@ -82,12 +82,22 @@ export function readResumeState(hash: string): PathwayState | undefined {
     if (payload.version !== 1 || !Array.isArray(payload.steps) || !payload.steps.length || payload.steps.length > 7) return;
     let state: PathwayState = { currentStep: "metabolic", history: [], answers: {} };
     for (const [index, entry] of payload.steps.entries()) {
-      if (!entry || entry.step !== state.currentStep || !entry.values || typeof entry.values !== "object" || Array.isArray(entry.values)) return;
+      if (!entry || !entry.values || typeof entry.values !== "object" || Array.isArray(entry.values)) return;
       if (Object.entries(entry.values).some(([key, value]) => ["__proto__", "constructor", "prototype", "missingValues"].includes(key) || typeof value !== "string")) return;
       const values = entry.values as FormValues;
+      // Links created before the direct FIB-4 route may include an enzyme page.
+      // Carry those inputs forward without showing the redundant page again.
+      if (state.currentStep === "fib4" && entry.step === "enzymes" &&
+          (state.answers.diabetes as { hasDiabetes?: string } | undefined)?.hasDiabetes === "no") {
+        state = { ...state, answers: { ...state.answers, fib4: { alt: values.alt, ast: values.ast } } };
+        if (index === payload.steps.length - 1) return state;
+        continue;
+      }
+      if (entry.step !== state.currentStep) return;
+
       if (index === payload.steps.length - 1) {
         if (!["enzymes", "fib4", "app", "elastography"].includes(entry.step)) return;
-        return { ...state, answers: { ...state.answers, [entry.step as Step]: values } };
+        return { ...state, answers: { ...state.answers, [entry.step as Step]: { ...(state.answers[entry.step] as Record<string, unknown> | undefined), ...values } } };
       }
       state = submitStep(state, values);
       if (state.currentStep === "result") return;

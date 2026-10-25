@@ -14,13 +14,12 @@ flowchart TD
     SCREEN --> EXCLUSION{Alcohol above sex-specific limit<br/>or any alternate cause identified?}
     EXCLUSION -- Yes --> EXIT([This pathway doesn't apply because:<br/>list all applicable reasons;<br/>ALD: male &gt;= 30 or female &gt;= 25 drinks/week;<br/>MetALD: male &gt; 15 and &lt; 30 or female &gt; 10 and &lt; 25;<br/>and any identified DILI, HBV, HCV, or genetic cause])
     EXCLUSION -- No --> DIABETES{Type 2 diabetes?}
-    DIABETES -- "No: ALT, AST, platelets required" --> ENZYMES
+    DIABETES -- "No: enter age, ALT, AST, platelets once" --> FIB4
     DIABETES -- "Yes: ALT, AST, platelets, albumin required" --> ENZYMES
     ENZYMES[Review aminotransferases:<br/>ALT or AST &gt;= 200 U/L flags<br/>consider alternate cause]
     ENZYMES -- "Required values unavailable" --> MISSING([Assessment incomplete:<br/>list full branch bloodwork;<br/>order tests not already available;<br/>return to the same step with results])
-    ENZYMES -- "Values available" --> TOOL{Previously recorded type 2 diabetes?}
-    TOOL -- No --> FIB4[Calculate FIB-4:<br/>age x AST / &#40;platelets x sqrt&#40;ALT&#41;&#41;]
-    TOOL -- Yes --> APP[Calculate APP:<br/>albumin x platelets / 1000]
+    ENZYMES -- "Values available" --> APP[Calculate APP:<br/>albumin x platelets / 1000]
+    FIB4[Calculate FIB-4:<br/>age x AST / &#40;platelets x sqrt&#40;ALT&#41;&#41;;<br/>ALT or AST &gt;= 200 U/L flags consider alternate cause]
 
     FIB4 -- "Required ALT, AST, platelets, or age unavailable" --> MISSING
     FIB4 -- "Values available" --> FIB4_AGE{Age &gt;= 65 years?}
@@ -60,7 +59,7 @@ recommendations contain only this explanation.
 The aminotransferase, FIB-4, and APP pages offer “I don't have the required
 values”. This bypasses form validation and ends the current assessment as
 incomplete, without calculating a score or treating missing values as a pathway
-exclusion. Diabetes is asked before aminotransferase review, so the recommendation lists
+exclusion. Diabetes is asked before laboratory inputs, so the recommendation lists
 all bloodwork needed for the selected branch, including subsequent steps:
 ALT, AST, and platelet count for the non-diabetes/FIB-4 branch; ALT, AST,
 platelet count, and albumin for the diabetes/APP branch. The physician is asked
@@ -71,7 +70,9 @@ required values. The return instruction is a clickable link that restores the
 same step and previously entered answers, including earlier screening choices.
 The copied EMR summary includes this link. Values are encoded in the URL
 fragment using a compact, versioned format (`#r2=...`; older `#resume=...` links remain supported), with no server storage. Opening the link replays
-completed steps from their inputs to recalculate scores and routing; malformed
+completed steps from their inputs to recalculate scores and routing; older
+non-diabetes links that included an aminotransferase page carry those values
+forward to FIB-4 without revisiting that page; malformed
 or incompatible links open a fresh pathway. Back also returns to the same page
 with available values preserved.
 The option also works when current-page values are present but bloodwork for
@@ -102,7 +103,9 @@ The five metabolic syndrome criteria are:
 Alcohol consumption is entered on the alternate diagnoses page. One submission
 checks alcohol thresholds and all selected causes, preserving all reported
 answers and listing all applicable exclusion reasons. Passing this combined
-screen proceeds to the diabetes question, then aminotransferase review.
+screen proceeds to the diabetes question. No type 2 diabetes routes directly
+to FIB-4, where age, ALT, AST, and platelet count are entered once. Type 2
+diabetes routes through aminotransferase review and then APP.
 
 An alternate diagnosis or cause is any selected configured DILI medication,
 positive HBsAg, positive HCV antibody with positive HCV RNA, or selected
@@ -127,7 +130,9 @@ The configured genetic alternate causes are:
 
 The aminotransferase threshold is a soft cutoff. ALT or AST `>= 200 U/L` flags
 that an alternate cause should be considered, but it does not exclude the
-patient from continuing through the MASLD/MASH pathway.
+patient from continuing through the MASLD/MASH pathway. The same flag is
+calculated from the FIB-4 inputs on the direct non-diabetes route and appears
+in the result and copied summary.
 
 Alcohol thresholds use the configured `14 g` standard drink. The MASLD alcohol
 limit is inclusive: female `<= 10 drinks/week` (`<= 20 g/day`) and male

@@ -18,25 +18,26 @@ describe("resume links", () => {
   it("restores the same step and entered values, including earlier screening", () => {
     const incomplete = submitStep(screening(), { missingValues: "yes", alt: "100" });
     const restored = roundTrip(incomplete);
-    expect(restored.currentStep).toBe("enzymes");
+    expect(restored.currentStep).toBe("fib4");
     expect(restored.history).toEqual(["metabolic", "alternate", "diabetes"]);
-    expect(restored.answers.enzymes).toMatchObject({ alt: "100" });
+    expect(restored.answers.fib4).toMatchObject({ alt: "100" });
     expect(restored.answers.diabetes).toEqual({ hasDiabetes: "no" });
     expect(restored.answers.metabolic).toEqual({ sex: "female", knownMetabolicSyndrome: true });
     expect(restored.result).toBeUndefined();
-    expect(submitStep(restored, { alt: "100", ast: "26" }).currentStep).toBe("fib4");
+    expect(submitStep(restored, { age: "50", alt: "100", ast: "25.8", platelets: "100" }).result?.score).toBe("FIB-4 1.29");
   });
   it.each(["yes", "no"])("restores partial scoring inputs for diabetes %s", (hasDiabetes) => {
-    const state = submitStep(screening(hasDiabetes), { alt: "100", ast: "26" });
+    const state = hasDiabetes === "yes" ? submitStep(screening(hasDiabetes), { alt: "100", ast: "26" }) : screening(hasDiabetes);
     const incomplete = submitStep(state, { missingValues: "yes", ...(hasDiabetes === "yes" ? { albumin: "4" } : { age: "50", alt: "100", ast: "26" }) });
     const restored = roundTrip(incomplete);
     expect(restored.currentStep).toBe(hasDiabetes === "yes" ? "app" : "fib4");
     expect(restored.answers[restored.currentStep]).not.toHaveProperty("missingValues");
     expect(restored.answers[restored.currentStep]).not.toHaveProperty("score");
-    expect(restored.answers.enzymes).toMatchObject({ alt: 100, ast: 26 });
+    if (hasDiabetes === "yes") expect(restored.answers.enzymes).toMatchObject({ alt: 100, ast: 26 });
+    else expect(restored.answers.fib4).toMatchObject({ age: "50", alt: "100", ast: "26" });
   });
   it("recalculates prior scores when returning for elastography", () => {
-    let state = submitStep(screening(), { alt: "100", ast: "26" });
+    let state = screening();
     state = submitStep(state, { age: "50", alt: "100", ast: "26", platelets: "100" });
     state = submitStep(state, { missingValues: "yes" });
     const url = new URL(buildResumeUrl(state, "https://example.com/pathway/")!);
@@ -79,9 +80,24 @@ it("makes a substantially shorter link without losing entered values", () => {
   expect(new URL(compact).hash.length).toBeLessThan(legacySize / 2);
   const restored = readResumeState(new URL(compact).hash)!;
   expect(restored.answers.metabolic).toMatchObject({ sex: "male", waist: "102", triglycerides: "1.7", criteriaCount: 3 });
-  expect(restored.answers.enzymes).toMatchObject({ alt: "100" });
+  expect(restored.answers.fib4).toMatchObject({ alt: "100" });
 });
 
 it.each(["#r2=garbage", "#r2=bnVsbA", "#r2=W1s5OSxbXV1d"])("ignores invalid compact links %s", (hash) => {
   expect(readResumeState(hash)).toBeUndefined();
+});
+
+
+it.each([false, true])("restores older non-diabetes links with an enzyme step (later FIB-4: %s)", (laterFib4) => {
+  const steps = [
+    { step: "metabolic", values: { sex: "female", knownMetabolicSyndrome: "on" } },
+    { step: "alternate", values: { drinksPerWeek: "2" } },
+    { step: "diabetes", values: { hasDiabetes: "no" } },
+    { step: "enzymes", values: { alt: "100", ast: "26" } },
+    ...(laterFib4 ? [{ step: "fib4", values: { age: "50", alt: "100", ast: "26" } }] : []),
+  ];
+  const restored = readResumeState(`#resume=${encodeURIComponent(JSON.stringify({ version: 1, steps }))}`)!;
+  expect(restored.currentStep).toBe("fib4");
+  expect(restored.history).toEqual(["metabolic", "alternate", "diabetes"]);
+  expect(restored.answers.fib4).toMatchObject({ alt: "100", ast: "26" });
 });

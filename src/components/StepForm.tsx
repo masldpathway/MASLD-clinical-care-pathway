@@ -162,7 +162,7 @@ function Diabetes({ state }: Props) {
 function Fib4({ state }: Props) {
   const answers = saved(state, "fib4");
   const enzymes = saved(state, "enzymes");
-  return <Layout description="FIB-4 = (age x AST) / (platelet count x square root of ALT)." actions={<Actions nextLabel="Calculate FIB-4" missingValues />}>
+  return <Layout description={<>FIB-4 = (age x AST) / (platelet count x square root of ALT). ALT or AST at or above {config.aminotransferases.thresholdUL} U/L flags consideration of an alternate cause but does not exclude the patient from this pathway.</>} actions={<Actions nextLabel="Calculate FIB-4" missingValues />}>
     <Input id="age" name="age" label="Age (years)" type="number" min="0" step="any" required defaultValue={text(answers.age)} />
     <Input id="platelets" name="platelets" label="Platelet count (10^9/L)" type="number" min="0" step="any" required defaultValue={text(answers.platelets)} />
     <Input id="alt" name="alt" label="ALT (U/L)" type="number" min="0" step="any" required defaultValue={text(answers.alt ?? enzymes.alt)} />
