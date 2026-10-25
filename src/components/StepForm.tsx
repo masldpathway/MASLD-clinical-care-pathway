@@ -1,7 +1,12 @@
 import { useState, type ReactNode } from "react";
 import {
   Box,
+  Button,
   FormControl,
+  FormControlLabel,
+  FormLabel,
+  Radio,
+  RadioGroup,
   InputLabel,
   MenuItem,
   Select as MuiSelect,
@@ -11,7 +16,7 @@ import {
 } from "@mui/material";
 import { config } from "../config";
 import type { PathwayState, Step } from "../types";
-import { Actions, Check, Input, Select } from "./Fields";
+import { Actions, Check, Input } from "./Fields";
 
 type Props = { state: PathwayState };
 type Answers = Record<string, unknown>;
@@ -61,12 +66,24 @@ function CheckSection({ title, children }: { title: string; children: ReactNode 
 
 function Metabolic({ state }: Props) {
   const answers = saved(state, "metabolic");
+  const [knownDiagnosis, setKnownDiagnosis] = useState(Boolean(answers.knownMetabolicSyndrome));
   return <Layout
     description={<>MASLD screening continues when at least {config.metabolicSyndrome.requiredCriteria} of 5 criteria are met. Specific treatment or pre-existing qualifying conditions count for the associated criterion.</>}
     actions={<Actions back={false} />}
   >
-    <Select id="sex" name="sex" label="Sex used for pathway thresholds" required defaultValue={text(answers.sex)}
-      options={[["male", "Male"], ["female", "Female"]]} />
+    <FormControl required sx={{ gridColumn: "1 / -1" }}>
+      <FormLabel id="sex-label">Sex used for pathway thresholds</FormLabel>
+      <RadioGroup row name="sex" aria-labelledby="sex-label" defaultValue={text(answers.sex)}>
+        <FormControlLabel value="male" control={<Radio required />} sx={{ "& .MuiFormControlLabel-asterisk": { display: "none" } }} label="Male" />
+        <FormControlLabel value="female" control={<Radio required />} sx={{ "& .MuiFormControlLabel-asterisk": { display: "none" } }} label="Female" />
+      </RadioGroup>
+    </FormControl>
+    <Box sx={{ gridColumn: { sm: "1 / -1" } }}>
+      <Check id="knownMetabolicSyndrome" name="knownMetabolicSyndrome" centerLabel
+        label="Patient has metabolic syndrome" checked={knownDiagnosis}
+        onChange={(event) => setKnownDiagnosis(event.target.checked)} />
+    </Box>
+    {!knownDiagnosis && <>
     <UnitInput id="waist" label="Waist circumference" value={answers.waist} unit={answers.waistUnit}
       options={[["cm", "cm"], ["in", "inches"]]} />
     <UnitInput id="triglycerides" label="Triglycerides" value={answers.triglycerides} unit={answers.triglyceridesUnit}
@@ -83,13 +100,7 @@ function Metabolic({ state }: Props) {
       <Check id="bloodPressureTreatment" name="bloodPressureTreatment" centerLabel label="Treatment for elevated blood pressure" defaultChecked={Boolean(answers.bloodPressureTreatment)} />
       <Check id="type2DiabetesDiagnosis" name="type2DiabetesDiagnosis" centerLabel label="Previously diagnosed type 2 diabetes" defaultChecked={Boolean(answers.type2DiabetesDiagnosis)} />
     </CheckSection>
-  </Layout>;
-}
-
-function Alcohol({ state }: Props) {
-  const answers = saved(state, "alcohol");
-  return <Layout description={<>Enter the average number of standard drinks consumed each week. The development configuration uses a {config.alcohol.standardDrinkGrams} g standard drink.</>}>
-    <Input id="drinksPerWeek" name="drinksPerWeek" label="Standard drinks per week" type="number" min="0" step="any" required defaultValue={text(answers.drinksPerWeek)} />
+    </>}
   </Layout>;
 }
 
@@ -97,7 +108,11 @@ function Alternate({ state }: Props) {
   const answers = saved(state, "alternate");
   const medications = (answers.medications || []) as string[];
   const conditions = (answers.geneticConditions || []) as string[];
-  return <Layout description="Select known alternate diagnoses or possible causes. Any positive result exits this MASLD pathway.">
+  return <Layout description="Screen alcohol consumption and select known alternate diagnoses or possible causes. Alcohol above the pathway limit or any selected cause excludes the patient from this MASLD pathway.">
+    <CheckSection title="Alcohol consumption">
+      <Typography color="text.secondary">Enter the average number of standard drinks ({config.alcohol.standardDrinkGrams} g) consumed each week.</Typography>
+      <Input id="drinksPerWeek" name="drinksPerWeek" label="Standard drinks per week" type="number" min="0" step="any" required defaultValue={text(answers.drinksPerWeek ?? 0)} />
+    </CheckSection>
     <CheckSection title="Potential drug-induced liver injury medications">
       {config.alternateDiagnoses.diliMedications.map((medication, index) =>
         <Check key={medication} id={`dili-${index}`} name={`dili-${index}`} centerLabel label={medication} defaultChecked={medications.includes(medication)} />)}
@@ -117,7 +132,8 @@ function Alternate({ state }: Props) {
 
 function Enzymes({ state }: Props) {
   const answers = saved(state, "enzymes");
-  return <Layout description={<>ALT or AST at or above {config.aminotransferases.thresholdUL} U/L is a soft cutoff to consider an alternate cause, but it does not exclude the patient from this pathway.</>}>
+  const hasDiabetes = saved(state, "diabetes").hasDiabetes === "yes";
+  return <Layout description={<>Bloodwork needed to complete this pathway: ALT, AST, platelet count{hasDiabetes ? ", and albumin" : ""}. ALT or AST at or above {config.aminotransferases.thresholdUL} U/L is a soft cutoff to consider an alternate cause, but it does not exclude the patient from this pathway.</>} actions={<Actions missingValues />}>
     <Input id="alt" name="alt" label="ALT (U/L)" type="number" min="0" step="any" required defaultValue={text(answers.alt)} />
     <Input id="ast" name="ast" label="AST (U/L)" type="number" min="0" step="any" required defaultValue={text(answers.ast)} />
   </Layout>;
@@ -125,26 +141,38 @@ function Enzymes({ state }: Props) {
 
 function Diabetes({ state }: Props) {
   const answers = saved(state, "diabetes");
-  return <Layout description="Type 2 diabetes determines the next risk stratification tool.">
-    <Select id="hasDiabetes" name="hasDiabetes" label="Does the patient have type 2 diabetes?" required defaultValue={text(answers.hasDiabetes)}
-      options={[["yes", "Yes"], ["no", "No"]]} />
+  return <Layout description="Type 2 diabetes determines the next risk stratification tool."
+    actions={<Box sx={{ mt: 3.25 }}>
+      <Button variant="outlined" type="button" data-action="back">Back</Button>
+    </Box>}
+  >
+    <Box role="group" aria-labelledby="diabetes-question" sx={{ gridColumn: { sm: "1 / -1" }, textAlign: "center" }}>
+      <Typography id="diabetes-question" sx={{ mb: 2 }}>Does the patient have type 2 diabetes?</Typography>
+      <Stack direction="row" spacing={2} sx={{ justifyContent: "center" }}>
+        {([['yes', 'Yes'], ['no', 'No']] as const).map(([value, label]) =>
+          <Button key={value} type="submit" name="hasDiabetes" value={value}
+            variant="contained" aria-pressed={answers.hasDiabetes === value} sx={{ minWidth: 100 }}>
+            {label}
+          </Button>)}
+      </Stack>
+    </Box>
   </Layout>;
 }
 
 function Fib4({ state }: Props) {
   const answers = saved(state, "fib4");
   const enzymes = saved(state, "enzymes");
-  return <Layout description="FIB-4 = (age x AST) / (platelet count x square root of ALT)." actions={<Actions nextLabel="Calculate FIB-4" />}>
+  return <Layout description="FIB-4 = (age x AST) / (platelet count x square root of ALT)." actions={<Actions nextLabel="Calculate FIB-4" missingValues />}>
     <Input id="age" name="age" label="Age (years)" type="number" min="0" step="any" required defaultValue={text(answers.age)} />
     <Input id="platelets" name="platelets" label="Platelet count (10^9/L)" type="number" min="0" step="any" required defaultValue={text(answers.platelets)} />
-    <Input id="alt" name="alt" label="ALT (U/L)" type="number" min="0" step="any" required defaultValue={text(enzymes.alt)} />
-    <Input id="ast" name="ast" label="AST (U/L)" type="number" min="0" step="any" required defaultValue={text(enzymes.ast)} />
+    <Input id="alt" name="alt" label="ALT (U/L)" type="number" min="0" step="any" required defaultValue={text(answers.alt ?? enzymes.alt)} />
+    <Input id="ast" name="ast" label="AST (U/L)" type="number" min="0" step="any" required defaultValue={text(answers.ast ?? enzymes.ast)} />
   </Layout>;
 }
 
 function AppScore({ state }: Props) {
   const answers = saved(state, "app");
-  return <Layout description="APP = albumin (g/dL) x platelet count (K/microL) / 1000." actions={<Actions nextLabel="Calculate APP" />}>
+  return <Layout description="APP = albumin (g/dL) x platelet count (K/microL) / 1000." actions={<Actions nextLabel="Calculate APP" missingValues />}>
     <Input id="albumin" name="albumin" label="Albumin (g/dL)" type="number" min="0" step="any" required defaultValue={text(answers.albumin)} />
     <Input id="platelets" name="platelets" label="Platelet count (K/microL)" type="number" min="0" step="any" required defaultValue={text(answers.platelets)} />
   </Layout>;
@@ -152,28 +180,16 @@ function AppScore({ state }: Props) {
 
 function Elastography({ state }: Props) {
   const answers = saved(state, "elastography");
-  const initialStatus = text(answers.status) || "available";
-  const [status, setStatus] = useState(initialStatus);
-
-  return <Layout description="Enter the FibroScan, MR elastography, shear-wave elastography, or other elastography result, or select the option needed to arrange testing." actions={<Actions nextLabel="View recommendation" />}>
-    <Select
-      id="status"
-      name="status"
-      label="Has elastography been completed?"
-      required
-      value={status}
-      onChange={(event) => setStatus(event.target.value)}
-      options={[["available", "Yes, result available"], ["not-done", "No, elastography not done"]]}
-    />
-    {status === "available" ? (
-      <Input id="kpa" name="kpa" label="Liver stiffness (kPa)" type="number" min="0" step="any" required defaultValue={text(answers.kpa)} />
-    ) : null}
+  return <Layout
+    description="Enter the FibroScan, MR elastography, shear-wave elastography, or other elastography result. If the result is unavailable, select the button below to see testing referral options."
+    actions={<Actions nextLabel="View recommendation" missingValues />}
+  >
+    <Input id="kpa" name="kpa" label="Liver stiffness (kPa)" type="number" min="0" step="any" required defaultValue={text(answers.kpa)} />
   </Layout>;
 }
 
 export const stepForms: Record<Exclude<Step, "result">, (props: Props) => ReactNode> = {
   metabolic: Metabolic,
-  alcohol: Alcohol,
   alternate: Alternate,
   enzymes: Enzymes,
   diabetes: Diabetes,

@@ -69,10 +69,13 @@ export function Check({ label, centerLabel = false, ...props }: CheckProps) {
   );
 }
 
-export function Actions({ back = true, nextLabel = "Continue" }) {
+export function Actions({ back = true, nextLabel = "Continue", missingValues = false }) {
   return (
-    <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1.5, mt: 3.25 }}>
+    <Box sx={{ display: "flex", justifyContent: "space-between", gap: 1.5, flexWrap: "wrap", mt: 3.25 }}>
       {back && <Button variant="outlined" type="button" data-action="back">Back</Button>}
+      {missingValues && <Button variant="outlined" type="submit" name="missingValues" value="yes" formNoValidate>
+        I don't have the required values
+      </Button>}
       <Button variant="contained" type="submit" sx={{ ml: "auto" }}>{nextLabel}</Button>
     </Box>
   );

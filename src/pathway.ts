@@ -5,7 +5,7 @@ const number = (value: FormDataEntryValue | undefined) =>
   Number.parseFloat(String(value));
 const checked = (value: FormDataEntryValue | undefined) => Boolean(value);
 const alternatePathwayMessage =
-  "The MASLD pathway no longer applies. Verify the diagnosis case by case and manage accordingly.";
+  "The MASLD pathway no longer applies.";
 
 const transition = (
   state: PathwayState,
@@ -22,9 +22,12 @@ const transition = (
 });
 
 export function submitStep(state: PathwayState, values: FormValues): PathwayState {
+  if (values.missingValues === "yes") {
+    if (state.currentStep === "elastography") return submitElastography(state, { ...values, status: "not-done" });
+    return submitMissingValues(state, values);
+  }
   const handlers: Partial<Record<Step, (state: PathwayState, values: FormValues) => PathwayState>> = {
     metabolic: submitMetabolic,
-    alcohol: submitAlcohol,
     alternate: submitAlternate,
     enzymes: submitEnzymes,
     diabetes: submitDiabetes,
@@ -37,8 +40,48 @@ export function submitStep(state: PathwayState, values: FormValues): PathwayStat
   return handler(state, values);
 }
 
+const bloodworkFields = {
+  enzymes: [["alt", "ALT"], ["ast", "AST"]],
+  fib4: [["alt", "ALT"], ["ast", "AST"], ["platelets", "platelet count"]],
+  app: [["albumin", "albumin"], ["platelets", "platelet count"]],
+} as const;
+
+function submitMissingValues(state: PathwayState, values: FormValues): PathwayState {
+  const step = state.currentStep;
+  if (step !== "enzymes" && step !== "fib4" && step !== "app") return state;
+  const fields = bloodworkFields[step];
+  const unavailable = (key: string) =>
+    String(values[key] ?? "").trim() === "" || !Number.isFinite(number(values[key])) ||
+    number(values[key]) < 0 || ((key === "platelets" || (step === "fib4" && key === "alt")) && number(values[key]) === 0);
+  const missing = fields.filter(([key]) => unavailable(key)).map(([, label]) => label);
+  const missingAge = step === "fib4" && (unavailable("age") || number(values.age) === 0);
+  const answers: Record<string, unknown> = { missingValues: true, missingTests: missing };
+  for (const [key] of [...fields, ...(step === "fib4" ? [["age", "Age"]] : [])]) {
+    if (!unavailable(key)) answers[key] = number(values[key]);
+  }
+  const hasDiabetes = (state.answers.diabetes as { hasDiabetes?: string } | undefined)?.hasDiabetes === "yes";
+  const requiredBloodwork = step === "app" || (step === "enzymes" && hasDiabetes)
+    ? ["ALT", "AST", "platelet count", "albumin"]
+    : ["ALT", "AST", "platelet count"];
+  const recommendations = [
+    `Required bloodwork to complete this pathway: ${requiredBloodwork.join(", ")}.`,
+    "Order any of these tests that are not already available.",
+    ...(missingAge ? ["Confirm the patient's age to calculate FIB-4."] : []),
+    "Return to this step when the required values are available to complete the pathway.",
+  ];
+  return transition(state, step, answers, "result", {
+    title: "Required values unavailable",
+    message: "The pathway assessment is incomplete because required values are unavailable.",
+    summary: ["Pathway assessment incomplete; no risk score or recommendation can be determined at this step."],
+    recommendations,
+  });
+}
+
 function submitMetabolic(state: PathwayState, values: FormValues): PathwayState {
   const sex = String(values.sex) as Sex;
+  if (checked(values.knownMetabolicSyndrome)) {
+    return transition(state, "metabolic", { sex, knownMetabolicSyndrome: true }, "alternate");
+  }
   const waistCm = values.waistUnit === "in" ? number(values.waist) * 2.54 : number(values.waist);
   const triglycerides = values.triglyceridesUnit === "mgdl"
     ? number(values.triglycerides) / 88.57
@@ -60,38 +103,19 @@ function submitMetabolic(state: PathwayState, values: FormValues): PathwayState 
   if (answers.criteriaCount < config.metabolicSyndrome.requiredCriteria) {
     return transition(state, "metabolic", answers, "result", {
       title: "MASLD pathway not indicated",
+      recommendations: ["This pathway doesn't apply because the patient does not meet the configured metabolic syndrome criteria."],
       message: "The patient does not currently meet the configured metabolic syndrome criteria. Exit this pathway.",
       summary: [`Metabolic syndrome criteria met: ${answers.criteriaCount} of 5.`],
     });
   }
-  return transition(state, "metabolic", answers, "alcohol");
-}
-
-function submitAlcohol(state: PathwayState, values: FormValues): PathwayState {
-  const drinksPerWeek = number(values.drinksPerWeek);
-  const sex = (state.answers.metabolic as { sex: Sex }).sex;
-  const thresholds = config.alcohol[sex];
-  if (drinksPerWeek >= thresholds.aldMinimum) {
-    return transition(state, "alcohol", { drinksPerWeek }, "result", {
-      title: "MASLD pathway does not apply",
-      message: `${alternatePathwayMessage} Alcohol consumption meets the configured ALD range.`,
-      summary: [`Reported alcohol consumption: ${drinksPerWeek} standard drinks/week.`],
-    });
-  }
-  if (drinksPerWeek > thresholds.metaldMinimum) {
-    return transition(state, "alcohol", { drinksPerWeek }, "result", {
-      title: "MASLD pathway does not apply",
-      message: `${alternatePathwayMessage} Alcohol consumption meets the configured MetALD range.`,
-      summary: [`Reported alcohol consumption: ${drinksPerWeek} standard drinks/week.`],
-    });
-  }
-  return transition(state, "alcohol", { drinksPerWeek }, "alternate");
+  return transition(state, "metabolic", answers, "alternate");
 }
 
 function submitAlternate(state: PathwayState, values: FormValues): PathwayState {
   const medications = config.alternateDiagnoses.diliMedications.filter((_, index) => values[`dili-${index}`]);
   const geneticConditions = config.alternateDiagnoses.geneticConditions.filter((_, index) => values[`genetic-${index}`]);
   const answers = {
+    drinksPerWeek: number(values.drinksPerWeek),
     medications,
     geneticConditions,
     hbsagPositive: checked(values.hbsagPositive),
@@ -103,14 +127,28 @@ function submitAlternate(state: PathwayState, values: FormValues): PathwayState 
     answers.hcvPositive ? "positive HCV antibody and HCV RNA" : "",
     geneticConditions.length ? "possible genetic condition" : "",
   ].filter(Boolean);
-  if (diagnoses.length) {
+  const sex = (state.answers.metabolic as { sex: Sex }).sex;
+  const thresholds = config.alcohol[sex];
+  const alcoholRange = answers.drinksPerWeek >= thresholds.aldMinimum ? "ALD"
+    : answers.drinksPerWeek > thresholds.metaldMinimum ? "MetALD" : undefined;
+  const reasons = [
+    ...(alcoholRange ? [`alcohol consumption meets the configured ${alcoholRange} range`] : []),
+    ...(diagnoses.length ? [`an alternate diagnosis or cause has been identified: ${diagnoses.join("; ")}`] : []),
+  ];
+  if (reasons.length) {
     return transition(state, "alternate", answers, "result", {
       title: "MASLD pathway does not apply",
-      message: `${alternatePathwayMessage} An alternate diagnosis or cause has been identified.`,
-      summary: diagnoses.map((diagnosis) => `Identified: ${diagnosis}.`),
+      message: `${alternatePathwayMessage} ${reasons.join("; ")}.`,
+      recommendations: [
+        `This pathway doesn't apply because ${reasons.join("; ")}.`,
+      ],
+      summary: [
+        `Reported alcohol consumption: ${answers.drinksPerWeek} standard drinks/week.`,
+        ...diagnoses.map((diagnosis) => `Identified: ${diagnosis}.`),
+      ],
     });
   }
-  return transition(state, "alternate", answers, "enzymes");
+  return transition(state, "alternate", answers, "diabetes");
 }
 
 function submitEnzymes(state: PathwayState, values: FormValues): PathwayState {
@@ -122,12 +160,13 @@ function submitEnzymes(state: PathwayState, values: FormValues): PathwayState {
   answers.considerAlternateCause =
     answers.alt >= config.aminotransferases.thresholdUL ||
     answers.ast >= config.aminotransferases.thresholdUL;
-  return transition(state, "enzymes", answers, "diabetes");
+  const diabetes = state.answers.diabetes as { hasDiabetes: string };
+  return transition(state, "enzymes", answers, diabetes.hasDiabetes === "yes" ? "app" : "fib4");
 }
 
 function submitDiabetes(state: PathwayState, values: FormValues): PathwayState {
   const answers = { hasDiabetes: String(values.hasDiabetes) };
-  return transition(state, "diabetes", answers, answers.hasDiabetes === "yes" ? "app" : "fib4");
+  return transition(state, "diabetes", answers, "enzymes");
 }
 
 function submitFib4(state: PathwayState, values: FormValues): PathwayState {

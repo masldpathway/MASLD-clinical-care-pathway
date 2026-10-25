@@ -6,24 +6,24 @@ reference, not a clinically validated guideline.
 
 ```mermaid
 flowchart TD
-    START([Start: suspected steatosis]) --> METABOLIC{At least 3 of 5 configured<br/>metabolic syndrome criteria or<br/>pre-existing qualifying conditions?}
+    START([Start: suspected steatosis]) --> KNOWN{Previously diagnosed<br/>metabolic syndrome?}
+    KNOWN -- "Yes: capture sex for alcohol thresholds;<br/>skip criteria assessment" --> SCREEN
+    KNOWN -- No --> METABOLIC{At least 3 of 5 configured<br/>metabolic syndrome criteria or<br/>pre-existing qualifying conditions?}
+    METABOLIC -- No --> NOT_INDICATED([This pathway doesn't apply;<br/>metabolic syndrome criteria not met])
+    METABOLIC -- Yes --> SCREEN[Exclude alternate diagnoses page:<br/>alcohol consumption, DILI medications,<br/>viral hepatitis, and genetic causes]
+    SCREEN --> EXCLUSION{Alcohol above sex-specific limit<br/>or any alternate cause identified?}
+    EXCLUSION -- Yes --> EXIT([This pathway doesn't apply because:<br/>list all applicable reasons;<br/>ALD: male &gt;= 30 or female &gt;= 25 drinks/week;<br/>MetALD: male &gt; 15 and &lt; 30 or female &gt; 10 and &lt; 25;<br/>and any identified DILI, HBV, HCV, or genetic cause])
+    EXCLUSION -- No --> DIABETES{Type 2 diabetes?}
+    DIABETES -- "No: ALT, AST, platelets required" --> ENZYMES
+    DIABETES -- "Yes: ALT, AST, platelets, albumin required" --> ENZYMES
+    ENZYMES[Review aminotransferases:<br/>ALT or AST &gt;= 200 U/L flags<br/>consider alternate cause]
+    ENZYMES -- "Required values unavailable" --> MISSING([Assessment incomplete:<br/>list full branch bloodwork;<br/>order tests not already available;<br/>return to the same step with results])
+    ENZYMES -- "Values available" --> TOOL{Previously recorded type 2 diabetes?}
+    TOOL -- No --> FIB4[Calculate FIB-4:<br/>age x AST / &#40;platelets x sqrt&#40;ALT&#41;&#41;]
+    TOOL -- Yes --> APP[Calculate APP:<br/>albumin x platelets / 1000]
 
-    METABOLIC -- No --> NOT_INDICATED([Exit: MASLD pathway not indicated])
-    METABOLIC -- Yes --> ALCOHOL{Alcohol consumption}
-
-    ALCOHOL -- "Male &gt;= 30 drinks/week<br/>Female &gt;= 25 drinks/week" --> ALD([Exit: MASLD pathway no longer applies;<br/>verify ALD case by case])
-    ALCOHOL -- "Male &gt; 15 and &lt; 30<br/>Female &gt; 10 and &lt; 25" --> METALD([Exit: MASLD pathway no longer applies;<br/>verify MetALD case by case])
-    ALCOHOL -- "At or below sex-specific MASLD alcohol limit" --> ALTERNATE{Any configured alternate<br/>diagnosis or cause?}
-
-    ALTERNATE -- Yes --> ALT_EXIT([Exit: MASLD pathway no longer applies;<br/>verify DILI, HBV, HCV, or genetic cause<br/>case by case])
-    ALTERNATE -- No --> ENZYMES[Review aminotransferases:<br/>ALT or AST &gt;= 200 U/L flags<br/>consider alternate cause]
-
-    ENZYMES --> DIABETES{Type 2 diabetes?}
-
-    DIABETES -- No --> FIB4[Calculate FIB-4:<br/>age x AST / &#40;platelets x sqrt&#40;ALT&#41;&#41;]
-    DIABETES -- Yes --> APP[Calculate APP:<br/>albumin x platelets / 1000]
-
-    FIB4 --> FIB4_AGE{Age &gt;= 65 years?}
+    FIB4 -- "Required ALT, AST, platelets, or age unavailable" --> MISSING
+    FIB4 -- "Values available" --> FIB4_AGE{Age &gt;= 65 years?}
     FIB4_AGE -- No --> FIB4_LOW_UNDER65{FIB-4 &lt; 1.3?}
     FIB4_AGE -- Yes --> FIB4_LOW_65{FIB-4 &lt; 2.0?}
     FIB4_LOW_UNDER65 -- Yes --> FIB4_1Y_PRIMARY([Do not refer to hepatology;<br/>continue management in primary care;<br/>repeat FIB-4 in 1-2 years])
@@ -33,14 +33,15 @@ flowchart TD
     FIB4_ADVANCED -- Yes --> FIB4_REFER([Refer to hepatology for further management<br/>and intensify cardio-metabolic risk reduction])
     FIB4_ADVANCED -- "No: intermediate range<br/>through 2.67 inclusive" --> ELASTOGRAPHY[Perform noninvasive fibrosis staging:<br/>FibroScan, MR elastography,<br/>or shear wave elastography]
 
-    APP --> APP_LOW{APP &lt;= 5.52?}
+    APP -- "Required albumin or platelets unavailable" --> MISSING
+    APP -- "Values available" --> APP_LOW{APP &lt;= 5.52?}
     APP_LOW -- Yes --> ELASTOGRAPHY
     APP_LOW -- No --> APP_HIGH{APP &gt;= 9.27?}
     APP_HIGH -- Yes --> APP_1Y([Repeat APP in 1 year])
     APP_HIGH -- No --> ELASTOGRAPHY
 
-    ELASTOGRAPHY --> ELASTOGRAPHY_DONE{Elastography completed?}
-    ELASTOGRAPHY_DONE -- No --> ELASTOGRAPHY_OPTIONS([Refer for elastography:<br/>FibroScan: refer to hepatology or local expert;<br/>Shear wave: refer to radiology at QEII HSC, Central Zone;<br/>MR elastography: order MRI liver with elastography at QEII HSC, Central Zone])
+    ELASTOGRAPHY --> ELASTOGRAPHY_DONE{Elastography result available?}
+    ELASTOGRAPHY_DONE -- "No: I don't have the required values button" --> ELASTOGRAPHY_OPTIONS([Refer for elastography:<br/>FibroScan: refer to hepatology or local expert;<br/>Shear wave: refer to radiology at QEII HSC, Central Zone;<br/>MR elastography: order MRI liver with elastography at QEII HSC, Central Zone])
     ELASTOGRAPHY_DONE -- Yes --> KPA{kPa &gt;= 8?}
     KPA -- Yes --> KPA_10{kPa &gt; 10?}
     KPA_10 -- No --> REFERRAL([Refer to hepatology and intensify<br/>cardiometabolic risk-factor modification])
@@ -48,10 +49,44 @@ flowchart TD
     KPA -- No --> FIB4_1Y([Repeat FIB-4 in 1 year and intensify<br/>cardiometabolic risk-factor modification])
 ```
 
+Every exclusion recommendation begins with "This pathway doesn't apply because"
+and displays the reason in the Recommendation section and
+copied EMR summary: unmet metabolic syndrome criteria, configured ALD or MetALD
+alcohol range, or the identified alternate diagnosis or cause. Exclusion
+recommendations contain only this explanation.
+
+## Missing bloodwork
+
+The aminotransferase, FIB-4, and APP pages offer “I don't have the required
+values”. This bypasses form validation and ends the current assessment as
+incomplete, without calculating a score or treating missing values as a pathway
+exclusion. Diabetes is asked before aminotransferase review, so the recommendation lists
+all bloodwork needed for the selected branch, including subsequent steps:
+ALT, AST, and platelet count for the non-diabetes/FIB-4 branch; ALT, AST,
+platelet count, and albumin for the diabetes/APP branch. The physician is asked
+to order tests that are not already available, without repeating existing tests. Missing age prompts confirmation of age,
+not a bloodwork order. A zero ALT or platelet count cannot be used as a FIB-4
+denominator. The result and copied summary ask the physician to return with the
+required values. The return instruction is a clickable link that restores the
+same step and previously entered answers, including earlier screening choices.
+The copied EMR summary includes this link. Values are encoded in the URL
+fragment using a compact, versioned format (`#r2=...`; older `#resume=...` links remain supported), with no server storage. Opening the link replays
+completed steps from their inputs to recalculate scores and routing; malformed
+or incompatible links open a fresh pathway. Back also returns to the same page
+with available values preserved.
+The option also works when current-page values are present but bloodwork for
+the subsequent step is unavailable.
+
 ## Branch Criteria
 
 Age is captured on the FIB-4 screen and used for FIB-4 calculation and
 age-specific FIB-4 thresholds.
+
+When metabolic syndrome is already diagnosed, the clinician can skip the five
+criteria and proceed directly to the combined alternate diagnosis and alcohol screening page. Sex is still required for
+alcohol thresholds. The report records the prior diagnosis without a calculated
+criteria count or unentered measurements. This does not imply type 2 diabetes;
+the later diabetes question remains separate.
 
 The five metabolic syndrome criteria are:
 
@@ -63,6 +98,11 @@ The five metabolic syndrome criteria are:
 4. Blood pressure: systolic `>= 130 mmHg`, diastolic `>= 85 mmHg`, or current
    antihypertensive treatment.
 5. Fasting glucose: `>= 5.6 mmol/L` or previous diagnosis of type 2 diabetes.
+
+Alcohol consumption is entered on the alternate diagnoses page. One submission
+checks alcohol thresholds and all selected causes, preserving all reported
+answers and listing all applicable exclusion reasons. Passing this combined
+screen proceeds to the diabetes question, then aminotransferase review.
 
 An alternate diagnosis or cause is any selected configured DILI medication,
 positive HBsAg, positive HCV antibody with positive HCV RNA, or selected
@@ -108,6 +148,10 @@ routes to hepatology referral with intensified cardio-metabolic risk reduction.
 If elastography is below the configured referral threshold after intermediate
 fibrosis staging, repeat FIB-4 in `1 year` and intensify cardiometabolic
 risk-factor modification.
+
+The elastography page displays a required liver stiffness input and an
+“I don't have the required values” button. The button bypasses input validation
+and shows testing referral options without requiring a dropdown selection.
 
 If elastography has not been done when the pathway reaches noninvasive fibrosis
 staging, the recommendation is to refer for elastography and list all three

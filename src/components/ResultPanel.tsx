@@ -1,4 +1,5 @@
-import { Box, Button, Paper, Stack, Typography } from "@mui/material";
+import { Box, Button, Link, Paper, Stack, Typography } from "@mui/material";
+import { buildResumeUrl } from "../resume";
 import type { PathwayState, Result } from "../types";
 
 type SectionItem = { label: string; value: string };
@@ -16,7 +17,7 @@ const unitValue = (value: unknown, unit: unknown) =>
 
 export function reportedItems(state: PathwayState): SectionItem[] {
   const metabolic = answer<Record<string, unknown>>(state, "metabolic");
-  const alcohol = answer<Record<string, unknown>>(state, "alcohol");
+  const alcohol = answer<Record<string, unknown>>(state, "alternate");
   const alternate = answer<{
     medications?: string[];
     geneticConditions?: string[];
@@ -31,8 +32,12 @@ export function reportedItems(state: PathwayState): SectionItem[] {
   const items: SectionItem[] = [];
 
   if (metabolic.sex) {
+    items.push({ label: "Sex used for thresholds", value: String(metabolic.sex) });
+  }
+  if (metabolic.knownMetabolicSyndrome) {
+    items.push({ label: "Metabolic syndrome", value: "Previously diagnosed; criteria assessment skipped" });
+  } else if (metabolic.sex) {
     items.push(
-      { label: "Sex used for thresholds", value: String(metabolic.sex) },
       {
         label: "Waist circumference",
         value: unitValue(metabolic.waist, metabolic.waistUnit),
@@ -113,6 +118,10 @@ export function reportedItems(state: PathwayState): SectionItem[] {
       label: "Platelet count",
       value: `${String(fib4.platelets)} 10^9/L`,
     });
+  if (fib4.alt !== undefined)
+    items.push({ label: "ALT used for FIB-4", value: `${String(fib4.alt)} U/L` });
+  if (fib4.ast !== undefined)
+    items.push({ label: "AST used for FIB-4", value: `${String(fib4.ast)} U/L` });
   if (app.albumin !== undefined)
     items.push({ label: "Albumin", value: `${String(app.albumin)} g/dL` });
   if (app.platelets !== undefined)
@@ -188,6 +197,7 @@ export function resultItems(state: PathwayState, result: Result) {
 }
 
 export function recommendationItems(result: Result) {
+  if (result.recommendations?.length) return result.recommendations;
   const actionItems = result.summary
     .filter((item) => !isCalculatedSummaryItem(item))
     .filter(isRecommendationSummaryItem);
@@ -195,19 +205,13 @@ export function recommendationItems(result: Result) {
   if (actionItems.length) return actionItems;
   if (result.message.includes("Exit this pathway."))
     return ["Exit this pathway."];
-  if (
-    result.message.includes(
-      "Verify the diagnosis case by case and manage accordingly.",
-    )
-  ) {
-    return ["Verify the diagnosis case by case and manage accordingly."];
-  }
 
   return [punctuate(result.title)];
 }
 
 export function buildResultSummaryText(state: PathwayState, result: Result) {
-  const recommendations = recommendationItems(result).map((item) =>
+  const resumeUrl = buildResumeUrl(state);
+  const recommendations = recommendationItems(result).filter((item) => !resumeUrl || !item.startsWith("Return to this step")).map((item) =>
     isElastographyOptionItem(item) ? `  - ${item}` : `- ${item}`,
   );
   const lines = [
@@ -221,9 +225,22 @@ export function buildResultSummaryText(state: PathwayState, result: Result) {
     "",
     "Recommendation:",
     ...recommendations,
+    ...(resumeUrl ? [`- Return to the pathway when the required values are available: ${resumeUrl}`] : []),
   ];
 
   return lines.join("\n");
+}
+
+const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]!);
+
+export function buildResultSummaryHtml(state: PathwayState, result: Result) {
+  const resumeUrl = buildResumeUrl(state);
+  const lines = buildResultSummaryText(state, result).split("\n").map((line) =>
+    resumeUrl && line === `- Return to the pathway when the required values are available: ${resumeUrl}`
+      ? `- <a href="${escapeHtml(resumeUrl)}">Return to the pathway when the required values are available</a>.`
+      : escapeHtml(line));
+  return `<div>${lines.join("<br>")}</div>`;
 }
 
 function Section({ title, items }: { title: string; items: SectionItem[] }) {
@@ -266,7 +283,7 @@ function Section({ title, items }: { title: string; items: SectionItem[] }) {
   );
 }
 
-function BulletSection({ title, items }: { title: string; items: string[] }) {
+function BulletSection({ title, items, resumeUrl }: { title: string; items: string[]; resumeUrl?: string }) {
   const elastographyOptions = items.filter(isElastographyOptionItem);
   const groupedItems = items.filter((item) => !isElastographyOptionItem(item));
 
@@ -283,7 +300,9 @@ function BulletSection({ title, items }: { title: string; items: string[] }) {
         <Stack component="ul" spacing={0.75} sx={{ mb: 0, pl: 2.5, mt: 1.5 }}>
           {groupedItems.map((item) => (
             <Box component="li" key={item}>
-              <Typography variant="body2">{item}</Typography>
+              <Typography variant="body2">{resumeUrl && item.startsWith("Return to this step")
+                ? <Link href={resumeUrl} data-action="resume">{item}</Link>
+                : item}</Typography>
               {item === "Refer for elastography." && elastographyOptions.length > 0 && (
                 <Stack component="ul" spacing={0.5} sx={{ mt: 0.75, pl: 2.5 }}>
                   {elastographyOptions.map((option) => (
@@ -304,12 +323,20 @@ function BulletSection({ title, items }: { title: string; items: string[] }) {
 export function ResultPanel({
   result,
   state,
+  onCopy,
+  copyStatus,
 }: {
   result: Result;
   state: PathwayState;
+  onCopy: () => void;
+  copyStatus: "idle" | "copying" | "copied" | "error";
 }) {
   const displayedResultItems = resultItems(state, result);
-  const displayedRecommendationItems = recommendationItems(result);
+  const resumeUrl = buildResumeUrl(state);
+  const displayedRecommendationItems = [...recommendationItems(result)];
+  if (resumeUrl && !displayedRecommendationItems.some((item) => item.startsWith("Return to this step"))) {
+    displayedRecommendationItems.push("Return to this step when the required values are available to complete the pathway.");
+  }
 
   return (
     <>
@@ -319,6 +346,7 @@ export function ResultPanel({
         <BulletSection
           title="Recommendation:"
           items={displayedRecommendationItems}
+          resumeUrl={resumeUrl}
         />
       </Paper>
       <Box
@@ -332,8 +360,8 @@ export function ResultPanel({
         <Button variant="outlined" type="button" data-action="back">
           Back
         </Button>
-        <Button variant="contained" type="button" data-action="copy">
-          Copy summary for EMR
+        <Button variant="contained" type="button" onClick={onCopy} disabled={copyStatus === "copying"}>
+          {copyStatus === "copying" ? "Copying…" : copyStatus === "copied" ? "Copied!" : "Copy summary for EMR"}
         </Button>
       </Box>
     </>

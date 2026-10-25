@@ -1,7 +1,6 @@
 export type Sex = "male" | "female";
 export type Step =
   | "metabolic"
-  | "alcohol"
   | "alternate"
   | "enzymes"
   | "diabetes"
@@ -15,6 +14,7 @@ export interface Result {
   message: string;
   score?: string;
   summary: string[];
+  recommendations?: string[];
 }
 
 export interface PathwayState {

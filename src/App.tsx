@@ -13,8 +13,10 @@ import {
   Toolbar,
   Typography,
 } from "@mui/material";
-import { buildResultSummaryText, ResultPanel } from "./components/ResultPanel";
+import { buildResultSummaryHtml, buildResultSummaryText, ResultPanel } from "./components/ResultPanel";
 import { stepForms } from "./components/StepForm";
+import { copyText } from "./clipboard";
+import { buildResumeUrl, readResumeState } from "./resume";
 import { submitStep } from "./pathway";
 import type { PathwayState, Step } from "./types";
 
@@ -25,7 +27,6 @@ const initialState: PathwayState = {
 };
 const titles: Record<Step, string> = {
   metabolic: "Assess metabolic syndrome",
-  alcohol: "Screen alcohol consumption",
   alternate: "Exclude alternate diagnoses",
   enzymes: "Review aminotransferases",
   diabetes: "Check for type 2 diabetes",
@@ -36,10 +37,9 @@ const titles: Record<Step, string> = {
 };
 const order: Step[] = [
   "metabolic",
-  "alcohol",
   "alternate",
-  "enzymes",
   "diabetes",
+  "enzymes",
   "fib4",
   "app",
   "elastography",
@@ -58,8 +58,8 @@ function pruneAnswersAfterBack(state: PathwayState, previous: Step) {
 }
 
 export default function App() {
-  const [state, setState] = useState<PathwayState>(initialState);
-  const [copied, setCopied] = useState(false);
+  const [state, setState] = useState<PathwayState>(() => readResumeState(window.location.hash) ?? initialState);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copying" | "copied" | "error">("idle");
   const [resetCount, setResetCount] = useState(0);
   const index =
     state.currentStep === "result"
@@ -70,9 +70,9 @@ export default function App() {
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setCopied(false);
+    setCopyStatus("idle");
     setState(
-      submitStep(state, Object.fromEntries(new FormData(event.currentTarget))),
+      submitStep(state, Object.fromEntries(new FormData(event.currentTarget, (event.nativeEvent as SubmitEvent).submitter))),
     );
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -81,6 +81,18 @@ export default function App() {
     const action = (event.target as HTMLElement).closest<HTMLElement>(
       "[data-action]",
     )?.dataset.action;
+    if (action === "resume") {
+      event.preventDefault();
+      const url = buildResumeUrl(state);
+      const restored = url && readResumeState(new URL(url).hash);
+      if (restored) {
+        window.history.replaceState(null, "", url);
+        setState(restored);
+        setCopyStatus("idle");
+        setResetCount((count) => count + 1);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    }
     if (action === "back") {
       const previous = state.history.at(-1);
       if (previous)
@@ -92,9 +104,16 @@ export default function App() {
           answers: pruneAnswersAfterBack(state, previous),
         });
     }
-    if (action === "copy" && state.result) {
-      const summary = buildResultSummaryText(state, state.result);
-      void navigator.clipboard.writeText(summary).then(() => setCopied(true));
+  }
+
+  async function copySummary() {
+    if (!state.result || copyStatus === "copying") return;
+    setCopyStatus("copying");
+    try {
+      await copyText(buildResultSummaryText(state, state.result), buildResultSummaryHtml(state, state.result));
+      setCopyStatus("copied");
+    } catch {
+      setCopyStatus("error");
     }
   }
 
@@ -193,8 +212,9 @@ export default function App() {
             <Button
               variant="text"
               onClick={() => {
+                window.history.replaceState(null, "", window.location.pathname + window.location.search);
                 setState(initialState);
-                setCopied(false);
+                setCopyStatus("idle");
                 setResetCount((count) => count + 1);
               }}
             >
@@ -214,11 +234,14 @@ export default function App() {
             sx={{ p: { xs: 2.25, sm: 3.25 } }}
           >
             {state.result ? (
-              <ResultPanel result={state.result} state={state} />
+              <ResultPanel result={state.result} state={state} onCopy={copySummary} copyStatus={copyStatus} />
             ) : (
               CurrentForm && <CurrentForm state={state} />
             )}
-            {copied && (
+            {copyStatus === "error" && <Alert severity="error" sx={{ mt: 2 }}>
+              Unable to copy. Check your browser's clipboard permissions and try again.
+            </Alert>}
+            {copyStatus === "copied" && (
               <Alert severity="success" sx={{ mt: 2 }}>
                 Copied to clipboard
               </Alert>
