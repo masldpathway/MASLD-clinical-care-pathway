@@ -9,7 +9,7 @@ flowchart TD
     START([Start: suspected steatosis]) --> KNOWN{Previously diagnosed<br/>metabolic syndrome?}
     KNOWN -- "Yes: capture sex for alcohol thresholds;<br/>skip criteria assessment" --> SCREEN
     KNOWN -- No --> METABOLIC{At least 3 of 5 configured<br/>metabolic syndrome criteria or<br/>pre-existing qualifying conditions?}
-    METABOLIC -- No --> NOT_INDICATED([This pathway doesn't apply;<br/>metabolic syndrome criteria not met])
+    METABOLIC -- No --> NOT_INDICATED([This pathway doesn't apply;<br/>metabolic syndrome criteria not met;<br/>FIB-4 not indicated by this pathway])
     METABOLIC -- Yes --> SCREEN[Exclude alternate diagnoses page:<br/>alcohol consumption, DILI medications,<br/>viral hepatitis, and genetic causes]
     SCREEN --> EXCLUSION{Alcohol above sex-specific limit<br/>or any alternate cause identified?}
     EXCLUSION -- Yes --> EXIT([This pathway doesn't apply because:<br/>list all applicable reasons;<br/>ALD: male &gt;= 30 or female &gt;= 25 drinks/week;<br/>MetALD: male &gt; 15 and &lt; 30 or female &gt; 10 and &lt; 25;<br/>and any identified DILI, HBV, HCV, or genetic cause])
@@ -52,7 +52,8 @@ Every exclusion recommendation begins with "This pathway doesn't apply because"
 and displays the reason in the Recommendation section and
 copied EMR summary: unmet metabolic syndrome criteria, configured ALD or MetALD
 alcohol range, or the identified alternate diagnosis or cause. Exclusion
-recommendations contain only this explanation.
+recommendations contain this explanation. When metabolic syndrome criteria are
+not met, the recommendation also states "FIB-4 not indicated by this pathway."
 
 ## Missing bloodwork
 

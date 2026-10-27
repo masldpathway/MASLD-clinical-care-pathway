@@ -1,4 +1,5 @@
-import { useState, type FormEvent, type MouseEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from "react";
+import { analyticsEnabled, resultUsageEvents, trackUsage } from "./analytics";
 import {
   Alert,
   AppBar,
@@ -61,6 +62,16 @@ export default function App() {
   const [state, setState] = useState<PathwayState>(() => readResumeState(window.location.hash) ?? initialState);
   const [copyStatus, setCopyStatus] = useState<"idle" | "copying" | "copied" | "error">("idle");
   const [resetCount, setResetCount] = useState(0);
+  const lastTrackedState = useRef<PathwayState | undefined>(undefined);
+  const started = useRef(false);
+  useEffect(() => {
+    if (lastTrackedState.current === state) return;
+    if (!lastTrackedState.current && window.location.hash && readResumeState(window.location.hash)) {
+      trackUsage("pathway-resumed");
+    }
+    lastTrackedState.current = state;
+    resultUsageEvents(state).forEach(trackUsage);
+  }, [state]);
   const index =
     state.currentStep === "result"
       ? order.length
@@ -70,6 +81,10 @@ export default function App() {
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!started.current) {
+      trackUsage("pathway-started");
+      started.current = true;
+    }
     setCopyStatus("idle");
     setState(
       submitStep(state, Object.fromEntries(new FormData(event.currentTarget, (event.nativeEvent as SubmitEvent).submitter))),
@@ -86,6 +101,7 @@ export default function App() {
       const url = buildResumeUrl(state);
       const restored = url && readResumeState(new URL(url).hash);
       if (restored) {
+        trackUsage("pathway-resumed");
         window.history.replaceState(null, "", url);
         setState(restored);
         setCopyStatus("idle");
@@ -134,7 +150,7 @@ export default function App() {
           </Avatar>
           <Box sx={{ flexGrow: 1 }}>
             <Typography sx={{ fontWeight: 800 }}>
-              MASLD Clinical Care Pathway
+              Nova Scotia MASLD Clinical Care Pathway FIB-4 interpretation
             </Typography>
             <Typography variant="caption" color="text.secondary">
               Development prototype
@@ -167,7 +183,7 @@ export default function App() {
             id="page-title"
             sx={{ mb: 1 }}
           >
-            MASLD Clinical Care Pathway
+            Nova Scotia MASLD Clinical Care Pathway FIB-4 interpretation
           </Typography>
           <Typography color="text.secondary" sx={{ maxWidth: 740, mb: 2 }}>
             Answer one set of questions at a time. This tool follows the pathway
@@ -214,6 +230,7 @@ export default function App() {
               onClick={() => {
                 window.history.replaceState(null, "", window.location.pathname + window.location.search);
                 setState(initialState);
+                started.current = false;
                 setCopyStatus("idle");
                 setResetCount((count) => count + 1);
               }}
@@ -248,13 +265,24 @@ export default function App() {
             )}
           </Box>
         </Paper>
+        <Box sx={{ textAlign: "center", mt: 2.5 }}>
+          <Button
+            href="https://docs.google.com/forms/d/e/1FAIpQLSer7IC9XKrFK6dx_w1B1m9iPv4z3f0vBJwYFNVb17_gHlrU_A/viewform"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Provide feedback
+          </Button>
+        </Box>
         <Typography
           component="footer"
           variant="caption"
           color="text.secondary"
           sx={{ textAlign: "center", display: "block", mt: 2.5 }}
         >
-          No data is saved or sent to a server.
+          {analyticsEnabled()
+            ? "Usage event counts are sent to GoatCounter. Patient inputs, scores, results, and resume links are not sent to analytics."
+            : "No data is saved or sent to a server."}
         </Typography>
       </Container>
     </>

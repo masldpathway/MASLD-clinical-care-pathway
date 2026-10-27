@@ -37,6 +37,8 @@ jobs:
       - name: End-to-end test
         run: npm run test:e2e
       - name: Build
+        env:
+          VITE_GOATCOUNTER_ENDPOINT: ${{ vars.VITE_GOATCOUNTER_ENDPOINT || 'https://masldpathway.goatcounter.com/count' }}
         run: npm run build
       - name: Configure Pages
         uses: actions/configure-pages@v5

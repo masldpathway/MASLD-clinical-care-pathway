@@ -103,8 +103,8 @@ function submitMetabolic(state: PathwayState, values: FormValues): PathwayState 
   if (answers.criteriaCount < config.metabolicSyndrome.requiredCriteria) {
     return transition(state, "metabolic", answers, "result", {
       title: "MASLD pathway not indicated",
-      recommendations: ["This pathway doesn't apply because the patient does not meet the configured metabolic syndrome criteria."],
-      message: "The patient does not currently meet the configured metabolic syndrome criteria. Exit this pathway.",
+      recommendations: ["This pathway doesn't apply because the patient does not meet the configured metabolic syndrome criteria. FIB-4 not indicated by this pathway."],
+      message: "The patient does not currently meet the configured metabolic syndrome criteria. Exit this pathway. FIB-4 not indicated by this pathway.",
       summary: [`Metabolic syndrome criteria met: ${answers.criteriaCount} of 5.`],
     });
   }

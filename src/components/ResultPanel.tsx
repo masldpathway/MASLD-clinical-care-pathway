@@ -353,6 +353,7 @@ export function ResultPanel({
       <Box
         sx={{
           display: "flex",
+          flexWrap: "wrap",
           justifyContent: "space-between",
           gap: 1.5,
           mt: 3.25,
@@ -361,9 +362,19 @@ export function ResultPanel({
         <Button variant="outlined" type="button" data-action="back">
           Back
         </Button>
-        <Button variant="contained" type="button" onClick={onCopy} disabled={copyStatus === "copying"}>
-          {copyStatus === "copying" ? "Copying…" : copyStatus === "copied" ? "Copied!" : "Copy summary for EMR"}
-        </Button>
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5 }}>
+          <Button variant="contained" type="button" onClick={onCopy} disabled={copyStatus === "copying"}>
+            {copyStatus === "copying" ? "Copying…" : copyStatus === "copied" ? "Copied!" : "Copy for EMR"}
+          </Button>
+          <Button
+            variant="contained"
+            href="https://docs.google.com/forms/d/e/1FAIpQLSer7IC9XKrFK6dx_w1B1m9iPv4z3f0vBJwYFNVb17_gHlrU_A/viewform"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Provide feedback
+          </Button>
+        </Box>
       </Box>
     </>
   );

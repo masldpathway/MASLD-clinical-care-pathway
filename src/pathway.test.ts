@@ -29,6 +29,9 @@ describe("MASLD pathway engine", () => {
     const state = submit(start(), qualifyingMetabolic({ waist: "101" }));
     expect((state.answers.metabolic as { criteriaCount: number }).criteriaCount).toBe(2);
     expect(state.result?.title).toBe("MASLD pathway not indicated");
+    expect(state.result?.message).toContain("FIB-4 not indicated by this pathway.");
+    expect(recommendationItems(state.result!)).toContain("This pathway doesn't apply because the patient does not meet the configured metabolic syndrome criteria. FIB-4 not indicated by this pathway.");
+    expect(buildResultSummaryText(state, state.result!)).toContain("FIB-4 not indicated by this pathway.");
   });
 
   it("counts pre-existing qualifying conditions and converts US customary units", () => {

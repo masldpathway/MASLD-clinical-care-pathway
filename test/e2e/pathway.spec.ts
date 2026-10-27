@@ -131,7 +131,7 @@ test("copy summary includes the full structured report", async ({ page, context,
   await page.getByRole("button", { name: "Calculate APP" }).click();
   await fillNumber(page, "Liver stiffness (kPa)", "9");
   await page.getByRole("button", { name: "View recommendation" }).click();
-  await page.getByRole("button", { name: "Copy summary for EMR" }).click();
+  await page.getByRole("button", { name: "Copy for EMR" }).click();
 
   const clipboardText = await page.evaluate(() => navigator.clipboard.readText());
 
@@ -318,7 +318,7 @@ test("return link and copied summary restore entered values in a new tab", async
   const link = page.getByRole("link", { name: "Return to this step when the required values are available to complete the pathway." });
   const href = await link.getAttribute("href");
   expect(href).toContain("#r2=");
-  await page.getByRole("button", { name: "Copy summary for EMR", exact: true }).click();
+  await page.getByRole("button", { name: "Copy for EMR", exact: true }).click();
   await expect(page.getByText("Copied to clipboard", { exact: true })).toBeVisible();
   const copied = await page.evaluate(() => navigator.clipboard.readText());
   expect(copied).toContain(href!);
@@ -370,7 +370,7 @@ test("one click copies even when the clipboard API rejects the first attempt", a
       });
     }
   });
-  await page.getByRole("button", { name: "Copy summary for EMR", exact: true }).click();
+  await page.getByRole("button", { name: "Copy for EMR", exact: true }).click();
   await expect(page.getByRole("button", { name: "Copied!", exact: true })).toBeVisible();
   await expect(page.getByText("Copied to clipboard", { exact: true })).toBeVisible();
   const text = await page.evaluate(() => navigator.clipboard.readText());
@@ -395,8 +395,8 @@ test("clipboard failure shows an error instead of a false success", async ({ pag
     for (const method of ["writeText", "write"]) Object.defineProperty(navigator.clipboard, method, { configurable: true, value: () => Promise.reject(new Error("Blocked")) });
     document.execCommand = () => false;
   });
-  await page.getByRole("button", { name: "Copy summary for EMR", exact: true }).click();
+  await page.getByRole("button", { name: "Copy for EMR", exact: true }).click();
   await expect(page.getByText("Unable to copy. Check your browser's clipboard permissions and try again.", { exact: true })).toBeVisible();
   await expect(page.getByText("Copied to clipboard", { exact: true })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Copy summary for EMR", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Copy for EMR", exact: true })).toBeEnabled();
 });

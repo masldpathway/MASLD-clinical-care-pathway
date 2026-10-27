@@ -12,6 +12,42 @@ npm run dev
 
 Then open the local URL printed by Vite.
 
+## Usage analytics (optional)
+
+The public tracking address `https://masldpathway.goatcounter.com/count` is
+configured in `.env` and in the GitHub Pages build workflow. It is not a secret.
+For local overrides, set `VITE_GOATCOUNTER_ENDPOINT` in `.env.local` and restart
+Vite. Set it to an empty string to disable analytics locally. For deployment,
+the GitHub Actions repository variable `VITE_GOATCOUNTER_ENDPOINT` can override
+the configured address. Without a valid endpoint, no analytics script loads
+and no events are sent.
+GoatCounter filters localhost traffic by default; verify live counts on the
+deployed site using the dashboard's total event counts.
+
+Events: `site-entry`, `pathway-started`, `results-displayed`,
+`assessment-completed`, `assessment-completed-app`, `assessment-completed-fib4`,
+`pathway-excluded`, `pathway-resumed`, and
+`values-unavailable-enzymes`, `values-unavailable-fib4`,
+`values-unavailable-app`, `values-unavailable-elastography`.
+
+Each results display sends `results-displayed` plus one outcome event. Completed
+assessments also send `assessment-completed-app` or `assessment-completed-fib4`
+based on the scoring route, including when followed by elastography. These are
+subsets of `assessment-completed`, so do not add them to the total. The breakdown
+starts when this change is deployed; historical events cannot be split retroactively.
+Completion
+includes recommendations reached before elastography when the pathway ends there.
+Unavailable elastography is counted as unavailable values. Starting over permits
+a new `pathway-started`; returning via a resume link counts as `pathway-resumed`.
+Repeated result displays count again; React rerenders do not. These are event
+totals, not unique patients or linked individual journeys. Closing a tab does not
+record a confirmed exit. Blockers and network failures may reduce counts.
+
+Only fixed event names are supplied by the app, with an empty referrer; patient
+inputs, scores, result text, query strings, and resume fragments are excluded.
+GoatCounter receives ordinary network request metadata; see its
+[privacy documentation](https://www.goatcounter.com/help/privacy).
+
 ## Run the tests
 
 Run the typed pathway-engine tests with Vitest:
