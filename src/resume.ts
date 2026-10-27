@@ -85,6 +85,14 @@ export function readResumeState(hash: string): PathwayState | undefined {
       if (!entry || !entry.values || typeof entry.values !== "object" || Array.isArray(entry.values)) return;
       if (Object.entries(entry.values).some(([key, value]) => ["__proto__", "constructor", "prototype", "missingValues"].includes(key) || typeof value !== "string")) return;
       const values = entry.values as FormValues;
+      // Older links explicitly asked about diabetes after a full metabolic assessment.
+      // Replay that recorded answer so those links keep their original route.
+      if (entry.step === "diabetes" && state.history.at(-1) === "alternate" &&
+          (state.currentStep === "fib4" || state.currentStep === "enzymes")) {
+        if (values.hasDiabetes !== "yes" && values.hasDiabetes !== "no") return;
+        state = submitStep({ ...state, currentStep: "diabetes" }, values);
+        continue;
+      }
       // Links created before the direct FIB-4 route may include an enzyme page.
       // Carry those inputs forward without showing the redundant page again.
       if (state.currentStep === "fib4" && entry.step === "enzymes" &&

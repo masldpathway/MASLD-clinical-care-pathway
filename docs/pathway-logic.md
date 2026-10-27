@@ -13,7 +13,11 @@ flowchart TD
     METABOLIC -- Yes --> SCREEN[Exclude alternate diagnoses page:<br/>alcohol consumption, DILI medications,<br/>viral hepatitis, and genetic causes]
     SCREEN --> EXCLUSION{Alcohol above sex-specific limit<br/>or any alternate cause identified?}
     EXCLUSION -- Yes --> EXIT([This pathway doesn't apply because:<br/>list all applicable reasons;<br/>ALD: male &gt;= 30 or female &gt;= 25 drinks/week;<br/>MetALD: male &gt; 15 and &lt; 30 or female &gt; 10 and &lt; 25;<br/>and any identified DILI, HBV, HCV, or genetic cause])
-    EXCLUSION -- No --> DIABETES{Type 2 diabetes?}
+    EXCLUSION -- No --> ASSESSED{Metabolic criteria assessed<br/>on first page?}
+    ASSESSED -- Yes --> RECORDED{Previously diagnosed T2DM<br/>checkbox selected?}
+    RECORDED -- Yes --> ENZYMES
+    RECORDED -- No --> FIB4
+    ASSESSED -- "No: known metabolic syndrome" --> DIABETES{Type 2 diabetes?}
     DIABETES -- "No: enter age, ALT, AST, platelets once" --> FIB4
     DIABETES -- "Yes: ALT, AST, platelets, albumin required" --> ENZYMES
     ENZYMES[Review aminotransferases:<br/>ALT or AST &gt;= 200 U/L flags<br/>consider alternate cause]
@@ -88,7 +92,11 @@ When metabolic syndrome is already diagnosed, the clinician can skip the five
 criteria and proceed directly to the combined alternate diagnosis and alcohol screening page. Sex is still required for
 alcohol thresholds. The report records the prior diagnosis without a calculated
 criteria count or unentered measurements. This does not imply type 2 diabetes;
-the later diabetes question remains separate.
+these patients are asked the separate diabetes question after alternate screening.
+When criteria are assessed, the previously diagnosed type 2 diabetes checkbox
+supplies the diabetes answer and the separate question is skipped. An unchecked
+checkbox routes as no known T2DM; elevated fasting glucose alone does not
+establish T2DM for routing.
 
 The five metabolic syndrome criteria are:
 
@@ -104,7 +112,8 @@ The five metabolic syndrome criteria are:
 Alcohol consumption is entered on the alternate diagnoses page. One submission
 checks alcohol thresholds and all selected causes, preserving all reported
 answers and listing all applicable exclusion reasons. Passing this combined
-screen proceeds to the diabetes question. No type 2 diabetes routes directly
+screen reuses the first-page diabetes answer when criteria were assessed, or
+asks the diabetes question when criteria were skipped. No type 2 diabetes routes directly
 to FIB-4, where age, ALT, AST, and platelet count are entered once. Type 2
 diabetes routes through aminotransferase review and then APP.
 

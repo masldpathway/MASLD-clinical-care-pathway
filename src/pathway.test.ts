@@ -15,6 +15,14 @@ const qualifyingMetabolic = (overrides = {}) => ({
 });
 
 describe("MASLD pathway engine", () => {
+  it.each([false, true])("reuses assessed diabetes status (%s) after alternate screening", (diagnosed) => {
+    const metabolic = submit(start(), qualifyingMetabolic({ glucose: "20", ...(diagnosed ? { type2DiabetesDiagnosis: "on" } : {}) }));
+    const routed = submit(metabolic, {});
+    expect(routed.currentStep).toBe(diagnosed ? "enzymes" : "fib4");
+    expect(routed.answers.diabetes).toEqual({ hasDiabetes: diagnosed ? "yes" : "no" });
+    expect(routed.history).toEqual(["metabolic", "alternate"]);
+    expect(submit(metabolic, { hbsagPositive: "on" }).currentStep).toBe("result");
+  });
   it.each(["male", "female"])("skips criteria for established metabolic syndrome (%s) and preserves alcohol thresholds", (sex) => {
     const state = submit(start(), { sex, knownMetabolicSyndrome: "on" });
     expect(state.currentStep).toBe("alternate");
@@ -84,7 +92,7 @@ describe("MASLD pathway engine", () => {
 
   it("continues below the sex-specific alcohol threshold", () => {
     const metabolic = submit(start(), qualifyingMetabolic({ sex: "female" }));
-    expect(submit(metabolic, { drinksPerWeek: "10" }).currentStep).toBe("diabetes");
+    expect(submit(metabolic, { drinksPerWeek: "10" }).currentStep).toBe("fib4");
     expect(submit(start("alternate", { metabolic: { sex: "male" } }), { drinksPerWeek: "15" }).currentStep).toBe("diabetes");
   });
 

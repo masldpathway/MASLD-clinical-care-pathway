@@ -15,6 +15,27 @@ function roundTrip(state: PathwayState) {
 }
 
 describe("resume links", () => {
+  it.each([false, true])("restores the inferred diabetes route (%s) without a diabetes history step", (diagnosed) => {
+    let state: PathwayState = { currentStep: "metabolic", history: [], answers: {} };
+    state = submitStep(state, { sex: "male", waist: "102", triglycerides: "1.7", hdl: "1.5", systolic: "130", glucose: "4", ...(diagnosed ? { type2DiabetesDiagnosis: "on" } : {}) });
+    state = submitStep(state, { drinksPerWeek: "0" });
+    const restored = roundTrip(submitStep(state, { missingValues: "yes" }));
+    expect(restored.currentStep).toBe(diagnosed ? "enzymes" : "fib4");
+    expect(restored.answers.diabetes).toEqual({ hasDiabetes: diagnosed ? "yes" : "no" });
+    expect(restored.history).toEqual(["metabolic", "alternate"]);
+  });
+
+  it("preserves an explicit diabetes answer in older full-assessment links", () => {
+    const steps = [
+      { step: "metabolic", values: { sex: "male", waist: "102", triglycerides: "1.7", hdl: "1.5", systolic: "130", glucose: "4" } },
+      { step: "alternate", values: { drinksPerWeek: "0" } },
+      { step: "diabetes", values: { hasDiabetes: "yes" } },
+      { step: "enzymes", values: { alt: "100" } },
+    ];
+    const restored = readResumeState(`#resume=${encodeURIComponent(JSON.stringify({ version: 1, steps }))}`)!;
+    expect(restored.currentStep).toBe("enzymes");
+    expect(restored.answers.diabetes).toEqual({ hasDiabetes: "yes" });
+  });
   it("restores the same step and entered values, including earlier screening", () => {
     const incomplete = submitStep(screening(), { missingValues: "yes", alt: "100" });
     const restored = roundTrip(incomplete);
@@ -73,7 +94,6 @@ it("makes a substantially shorter link without losing entered values", () => {
   let state: PathwayState = { currentStep: "metabolic", history: [], answers: {} };
   state = submitStep(state, { sex: "male", waist: "102", waistUnit: "cm", triglycerides: "1.7", triglyceridesUnit: "mmol", hdl: "1.5", hdlUnit: "mmol", systolic: "130", diastolic: "70", glucose: "4", glucoseUnit: "mmol" });
   state = submitStep(state, { drinksPerWeek: "3" });
-  state = submitStep(state, { hasDiabetes: "no" });
   state = submitStep(state, { missingValues: "yes", alt: "100" });
   const compact = buildResumeUrl(state, "https://example.com/pathway/")!;
   const legacySize = encodeURIComponent(JSON.stringify({ version: 1, steps: state.history.map((step) => ({ step, values: state.answers[step] })) })).length;

@@ -4,7 +4,7 @@ async function fillNumber(page: Page, name: string, value: string) {
   await page.getByRole("spinbutton", { name, exact: true }).fill(value);
 }
 
-async function fillMetabolicStep(page: Page) {
+async function fillMetabolicStep(page: Page, hasDiabetes = false) {
   await page.getByRole("radio", { name: "Male", exact: true }).check();
   await fillNumber(page, "Waist circumference", "102");
   await fillNumber(page, "Triglycerides", "1.7");
@@ -12,6 +12,7 @@ async function fillMetabolicStep(page: Page) {
   await fillNumber(page, "Systolic blood pressure (mmHg)", "130");
   await fillNumber(page, "Diastolic blood pressure (mmHg)", "70");
   await fillNumber(page, "Fasting blood glucose", "4");
+  await page.getByRole("checkbox", { name: "Previously diagnosed type 2 diabetes", exact: true }).setChecked(hasDiabetes);
   await page.getByRole("button", { name: "Continue" }).click();
 }
 
@@ -79,7 +80,6 @@ test("non-diabetes FIB-4 low-risk path shows reported values, factual results, a
 
   await fillMetabolicStep(page);
   await completeSharedScreening(page);
-  await answerDiabetes(page, "No");
   await fillNumber(page, "ALT (U/L)", "100");
   await fillNumber(page, "AST (U/L)", "25.8");
   await fillNumber(page, "Age (years)", "50");
@@ -97,9 +97,8 @@ test("non-diabetes FIB-4 low-risk path shows reported values, factual results, a
 test("diabetes APP referral path separates result facts from recommendation actions", async ({ page }) => {
   await page.goto("/");
 
-  await fillMetabolicStep(page);
+  await fillMetabolicStep(page, true);
   await completeSharedScreening(page);
-  await answerDiabetes(page, "Yes");
   await fillEnzymes(page, "100", "100");
   await fillNumber(page, "Albumin (g/dL)", "3.4");
   await fillNumber(page, "Platelet count (K/microL)", "900");
@@ -122,9 +121,8 @@ test("copy summary includes the full structured report", async ({ page, context,
   await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: baseURL ?? "http://127.0.0.1:5173" });
   await page.goto("/");
 
-  await fillMetabolicStep(page);
+  await fillMetabolicStep(page, true);
   await completeSharedScreening(page);
-  await answerDiabetes(page, "Yes");
   await fillEnzymes(page, "100", "100");
   await fillNumber(page, "Albumin (g/dL)", "3.4");
   await fillNumber(page, "Platelet count (K/microL)", "900");
@@ -150,7 +148,6 @@ test("elastography not done path lists testing referral options", async ({ page 
 
   await fillMetabolicStep(page);
   await completeSharedScreening(page);
-  await answerDiabetes(page, "No");
   await fillNumber(page, "ALT (U/L)", "100");
   await fillNumber(page, "AST (U/L)", "26");
   await fillNumber(page, "Age (years)", "50");
@@ -218,13 +215,15 @@ test("combined screening preserves answers on back and lists all exclusion reaso
   await fillNumber(page, "Standard drinks per week", "15");
   await page.getByRole("checkbox", { name: "HBsAg+", exact: true }).uncheck();
   await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Check for type 2 diabetes" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Calculate FIB-4", exact: true })).toBeVisible();
 });
 
 
 test("diabetes comes before enzymes and changing it clears downstream answers", async ({ page }) => {
   await page.goto("/");
-  await fillMetabolicStep(page);
+  await page.getByRole("radio", { name: "Male", exact: true }).check();
+  await page.getByRole("checkbox", { name: "Patient has metabolic syndrome", exact: true }).check();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
   await completeSharedScreening(page);
   await expect(page.getByRole("button", { name: "Continue", exact: true })).toHaveCount(0);
   await answerDiabetes(page, "Yes");
@@ -259,7 +258,6 @@ test("missing FIB-4 inputs recommend bloodwork and return to the same step", asy
   await page.goto("/");
   await fillMetabolicStep(page);
   await completeSharedScreening(page);
-  await answerDiabetes(page, "No");
   await fillNumber(page, "ALT (U/L)", "100");
   await page.getByRole("button", { name: "I don't have the required values", exact: true }).click();
   await expect(await recommendationSection(page)).toContainText("Required bloodwork to complete this pathway: ALT, AST, platelet count.");
@@ -279,9 +277,8 @@ test("missing FIB-4 inputs recommend bloodwork and return to the same step", asy
 
 test("missing APP values recommends albumin and platelet bloodwork", async ({ page }) => {
   await page.goto("/");
-  await fillMetabolicStep(page);
+  await fillMetabolicStep(page, true);
   await completeSharedScreening(page);
-  await answerDiabetes(page, "Yes");
   await fillEnzymes(page);
   await page.getByRole("button", { name: "I don't have the required values", exact: true }).click();
   await expect(await recommendationSection(page)).toContainText("Required bloodwork to complete this pathway: ALT, AST, platelet count, albumin.");
@@ -290,7 +287,9 @@ test("missing APP values recommends albumin and platelet bloodwork", async ({ pa
 
 test("diabetes branch lists all required bloodwork before ALT and AST are available", async ({ page }) => {
   await page.goto("/");
-  await fillMetabolicStep(page);
+  await page.getByRole("radio", { name: "Male", exact: true }).check();
+  await page.getByRole("checkbox", { name: "Patient has metabolic syndrome", exact: true }).check();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
   await completeSharedScreening(page);
   await answerDiabetes(page, "Yes");
   await expect(page.getByText("Step 4 of 7", { exact: true })).toBeVisible();
@@ -310,7 +309,6 @@ test("return link and copied summary restore entered values in a new tab", async
   await page.goto("/");
   await fillMetabolicStep(page);
   await completeSharedScreening(page, "3");
-  await answerDiabetes(page, "No");
   await fillNumber(page, "ALT (U/L)", "100");
   await fillNumber(page, "AST (U/L)", "25.8");
   await fillNumber(page, "Age (years)", "50");
@@ -360,7 +358,6 @@ test("one click copies even when the clipboard API rejects the first attempt", a
   await page.goto("/");
   await fillMetabolicStep(page);
   await completeSharedScreening(page);
-  await answerDiabetes(page, "No");
   await page.getByRole("button", { name: "I don't have the required values", exact: true }).click();
   await page.evaluate(() => {
     for (const method of ["writeText", "write"]) {
@@ -389,7 +386,6 @@ test("clipboard failure shows an error instead of a false success", async ({ pag
   await page.goto("/");
   await fillMetabolicStep(page);
   await completeSharedScreening(page);
-  await answerDiabetes(page, "No");
   await page.getByRole("button", { name: "I don't have the required values", exact: true }).click();
   await page.evaluate(() => {
     for (const method of ["writeText", "write"]) Object.defineProperty(navigator.clipboard, method, { configurable: true, value: () => Promise.reject(new Error("Blocked")) });

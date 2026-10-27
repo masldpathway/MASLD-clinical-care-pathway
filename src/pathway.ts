@@ -148,6 +148,12 @@ function submitAlternate(state: PathwayState, values: FormValues): PathwayState 
       ],
     });
   }
+  const metabolic = state.answers.metabolic as { knownMetabolicSyndrome?: boolean; criteriaCount?: number; type2DiabetesDiagnosis?: unknown };
+  if (!metabolic.knownMetabolicSyndrome && metabolic.criteriaCount !== undefined) {
+    const hasDiabetes = checked(metabolic.type2DiabetesDiagnosis as FormDataEntryValue | undefined) ? "yes" : "no";
+    return transition({ ...state, answers: { ...state.answers, diabetes: { hasDiabetes } } },
+      "alternate", answers, hasDiabetes === "yes" ? "enzymes" : "fib4");
+  }
   return transition(state, "alternate", answers, "diabetes");
 }
 
