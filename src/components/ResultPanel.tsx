@@ -32,7 +32,8 @@ export function reportedItems(state: PathwayState): SectionItem[] {
   const items: SectionItem[] = [];
 
   if (metabolic.sex) {
-    items.push({ label: "Sex used for thresholds", value: String(metabolic.sex) });
+    const sex = String(metabolic.sex);
+    items.push({ label: "Sex used for thresholds", value: sex.charAt(0).toUpperCase() + sex.slice(1) });
   }
   if (metabolic.knownMetabolicSyndrome) {
     items.push({ label: "Metabolic syndrome", value: "Previously diagnosed; criteria assessment skipped" });
