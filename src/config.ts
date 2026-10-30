@@ -1,6 +1,7 @@
 export const config = {
   metabolicSyndrome: {
-    requiredCriteria: 3,
+    requiredOtherCriteriaWithAbdominalObesity: 1,
+    requiredCriteriaWithoutAbdominalObesity: 3,
     waistCm: { male: 102, female: 88 },
     triglyceridesMmolL: 1.7,
     hdlMmolL: { male: 1.0, female: 1.3 },

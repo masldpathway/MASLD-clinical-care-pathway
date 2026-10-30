@@ -8,7 +8,8 @@ reference, not a clinically validated guideline.
 flowchart TD
     START([Start: suspected steatosis]) --> KNOWN{Previously diagnosed<br/>metabolic syndrome?}
     KNOWN -- "Yes: capture sex for alcohol thresholds;<br/>skip criteria assessment" --> SCREEN
-    KNOWN -- No --> METABOLIC{At least 3 of 5 configured<br/>metabolic syndrome criteria or<br/>pre-existing qualifying conditions?}
+    KNOWN -- No --> METABOLIC{T2DM diagnosed, OR abdominal obesity<br/>plus at least 1 other abnormal criterion,<br/>OR no abdominal obesity or T2DM<br/>and at least 3 abnormal criteria?}
+    WEIGHT_NOTE["Unresolved: separate BMI/overweight definition;<br/>currently uses waist cutoffs only"] -.-> METABOLIC
     METABOLIC -- No --> NOT_INDICATED([This pathway doesn't apply;<br/>metabolic syndrome criteria not met;<br/>FIB-4 not indicated by this pathway])
     METABOLIC -- Yes --> SCREEN[Exclude alternate diagnoses page:<br/>alcohol consumption, DILI medications,<br/>viral hepatitis, and genetic causes]
     SCREEN --> EXCLUSION{Alcohol above sex-specific limit<br/>or any alternate cause identified?}
@@ -98,7 +99,20 @@ supplies the diabetes answer and the separate question is skipped. An unchecked
 checkbox routes as no known T2DM; elevated fasting glucose alone does not
 establish T2DM for routing.
 
-The five metabolic syndrome criteria are:
+Screening passes with any of these routes:
+
+- Previously diagnosed type 2 diabetes, regardless of other values.
+- Abdominal obesity plus at least one other abnormal criterion.
+- Without abdominal obesity or T2DM, at least three abnormal criteria.
+
+Abdominal obesity uses the existing sex-specific waist cutoffs below. No separate
+BMI or overweight assessment is collected. Whether a separate overweight definition
+is needed remains unresolved; this implementation uses waist circumference.
+Low HDL is an abnormal criterion despite being low rather than elevated. Existing
+treatment equivalents continue to count. The recorded count out of five is
+descriptive; passing no longer always requires three of five.
+
+The five recorded criteria are:
 
 1. Waist circumference: male `>= 102 cm`; female `>= 88 cm`.
 2. Triglycerides: `>= 1.7 mmol/L`; or current specific treatment for elevated

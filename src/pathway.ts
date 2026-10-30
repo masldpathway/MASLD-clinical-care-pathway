@@ -100,7 +100,13 @@ function submitMetabolic(state: PathwayState, values: FormValues): PathwayState 
       checked(values.type2DiabetesDiagnosis),
   ];
   const answers = { ...values, sex, criteriaCount: criteria.filter(Boolean).length };
-  if (answers.criteriaCount < config.metabolicSyndrome.requiredCriteria) {
+  const hasType2Diabetes = checked(values.type2DiabetesDiagnosis);
+  const hasAbdominalObesity = criteria[0];
+  const otherCriteriaCount = criteria.slice(1).filter(Boolean).length;
+  const qualifies = hasType2Diabetes || (hasAbdominalObesity
+    ? otherCriteriaCount >= config.metabolicSyndrome.requiredOtherCriteriaWithAbdominalObesity
+    : otherCriteriaCount >= config.metabolicSyndrome.requiredCriteriaWithoutAbdominalObesity);
+  if (!qualifies) {
     return transition(state, "metabolic", answers, "result", {
       title: "MASLD pathway not indicated",
       recommendations: ["This pathway doesn't apply because the patient does not meet the configured metabolic syndrome criteria. FIB-4 not indicated by this pathway."],

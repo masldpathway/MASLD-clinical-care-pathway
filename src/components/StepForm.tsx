@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import {
   Box,
   Button,
+  ClickAwayListener,
   FormControl,
   FormControlLabel,
   FormLabel,
@@ -12,6 +13,7 @@ import {
   Select as MuiSelect,
   Stack,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import { config } from "../config";
@@ -66,9 +68,44 @@ function CheckSection({ title, children }: { title: string; children: ReactNode 
 
 function Metabolic({ state }: Props) {
   const answers = saved(state, "metabolic");
+  const [criteriaOpen, setCriteriaOpen] = useState(false);
   const [knownDiagnosis, setKnownDiagnosis] = useState(Boolean(answers.knownMetabolicSyndrome));
   return <Layout
-    description={<>MASLD screening continues when at least {config.metabolicSyndrome.requiredCriteria} of 5 criteria are met. Specific treatment or pre-existing qualifying conditions count for the associated criterion.</>}
+    description={<>
+      Pathway only applies if certain metabolic criteria are met.
+      <ClickAwayListener onClickAway={() => setCriteriaOpen(false)}>
+        <Tooltip
+          title={<>
+            Continue if the patient meets any one of these:
+            <Box component="ul" sx={{ my: 1, pl: 2, "& li + li": { mt: 0.75 } }}>
+              <li><strong>Type 2 diabetes:</strong> previously diagnosed, regardless of the other values.</li>
+              <li><strong>Abdominal obesity:</strong> plus at least {config.metabolicSyndrome.requiredOtherCriteriaWithAbdominalObesity} other abnormal metabolic value.</li>
+              <li><strong>No abdominal obesity or type 2 diabetes:</strong> at least {config.metabolicSyndrome.requiredCriteriaWithoutAbdominalObesity} abnormal metabolic values.</li>
+            </Box>
+            Abdominal obesity means waist circumference ≥ {config.metabolicSyndrome.waistCm.male} cm for males or ≥ {config.metabolicSyndrome.waistCm.female} cm for females.
+            <Box sx={{ mt: 1 }}>
+              Abnormal values are elevated triglycerides, low HDL cholesterol, elevated blood pressure, or elevated fasting glucose. Treatment for triglycerides, HDL, or blood pressure also counts for that value.
+            </Box>
+          </>}
+          open={criteriaOpen}
+          onOpen={() => setCriteriaOpen(true)}
+          onClose={() => setCriteriaOpen(false)}
+          disableTouchListener
+          arrow
+        >
+          <Button
+            type="button"
+            size="small"
+            aria-label="Metabolic screening criteria"
+            onClick={() => setCriteriaOpen((open) => !open)}
+            onKeyDown={(event) => { if (event.key === "Escape") setCriteriaOpen(false); }}
+            sx={{ minWidth: 0, minHeight: 0, p: 0, m: 0, ml: "5px", fontSize: "1.25rem", lineHeight: 1, verticalAlign: "baseline" }}
+          >
+            ⓘ
+          </Button>
+        </Tooltip>
+      </ClickAwayListener>
+    </>}
     actions={<Actions back={false} />}
   >
     <FormControl required sx={{ gridColumn: "1 / -1" }}>

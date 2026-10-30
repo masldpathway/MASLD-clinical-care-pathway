@@ -33,7 +33,7 @@ describe("MASLD pathway engine", () => {
     expect(submit(state, { drinksPerWeek: String(limit + 0.01) }).result?.message).toMatch(/MetALD range/);
   });
 
-  it("exits when fewer than three metabolic criteria are met", () => {
+  it("exits without abdominal obesity or T2DM when fewer than three criteria are met", () => {
     const state = submit(start(), qualifyingMetabolic({ waist: "101" }));
     expect((state.answers.metabolic as { criteriaCount: number }).criteriaCount).toBe(2);
     expect(state.result?.title).toBe("MASLD pathway not indicated");
@@ -65,12 +65,34 @@ describe("MASLD pathway engine", () => {
     })).currentStep).toBe("alternate");
 
     expect(submit(start(), qualifyingMetabolic({
-      sex: "female", hdl: "1.3", systolic: "129.99", glucose: "5.59",
+      sex: "female", triglycerides: "1.69", hdl: "1.3", systolic: "129.99", glucose: "5.59",
     })).result?.title).toBe("MASLD pathway not indicated");
 
     expect(submit(start(), qualifyingMetabolic({
       sex: "female", hdl: "1.29", systolic: "129.99", glucose: "5.59",
     })).currentStep).toBe("alternate");
+  });
+
+  it("passes T2DM alone but not elevated fasting glucose alone", () => {
+    const baseline = qualifyingMetabolic({ waist: "80", triglycerides: "1", hdl: "1.5", systolic: "120" });
+    const diabetes = submit(start(), { ...baseline, type2DiabetesDiagnosis: "on" });
+    expect(diabetes.currentStep).toBe("alternate");
+    expect(submit(diabetes, {}).currentStep).toBe("enzymes");
+    expect(submit(start(), { ...baseline, glucose: "5.6" }).currentStep).toBe("result");
+  });
+
+  it.each([['male', 102], ['female', 88]] as const)("uses the exact %s waist boundary with one other abnormal value", (sex, waist) => {
+    const baseline = qualifyingMetabolic({ sex, waist: String(waist), systolic: "120", triglycerides: "1.69" });
+    expect(submit(start(), baseline).currentStep).toBe("result");
+    expect(submit(start(), { ...baseline, triglycerides: "1.7" }).currentStep).toBe("alternate");
+    expect(submit(start(), { ...baseline, waist: String(waist - 0.01), triglycerides: "1.7" }).currentStep).toBe("result");
+    expect(submit(start(), { ...baseline, triglyceridesTreatment: "on" }).currentStep).toBe("alternate");
+  });
+
+  it("requires three abnormal values without abdominal obesity or T2DM", () => {
+    const baseline = qualifyingMetabolic({ waist: "80", glucose: "5.59" });
+    expect(submit(start(), baseline).currentStep).toBe("result");
+    expect(submit(start(), { ...baseline, glucose: "5.6" }).currentStep).toBe("alternate");
   });
 
   it("counts treatment for triglycerides and HDL plus prior type 2 diabetes diagnosis", () => {
